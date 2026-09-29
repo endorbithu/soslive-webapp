@@ -5,7 +5,6 @@ use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\TokenController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DashboardController::class, 'home'])->name('home');
@@ -24,7 +23,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings');
     Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::post('/settings/folder', [SettingsController::class, 'folder'])->name('settings.folder');
-    Route::get('/token/{owner}', [TokenController::class, 'show'])->middleware('throttle:60,1')->name('token');
+    Route::get('/events/{owner}', [DashboardController::class, 'events'])->middleware('throttle:60,1')->name('events');
 });
 
 Route::prefix('admin')->name('admin.')->group(function () {
