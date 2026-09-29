@@ -17,9 +17,11 @@
             Max események
             <input type="number" name="max_events" min="1" max="100000" required value="{{ old('max_events', $user->max_events) }}">
         </label>
-        @include('partials.user-fields', ['user' => $user, 'allowedEmails' => $allowedEmails])
         <button type="submit">Mentés</button>
     </form>
+
+    <h2>Beállítások</h2>
+    @include('partials.user-config', ['config' => $config])
 
     <h2>Törlés</h2>
     <p class="muted">Csak a backend adatai törlődnek; a user Drive-jában lévő fájlok megmaradnak.</p>

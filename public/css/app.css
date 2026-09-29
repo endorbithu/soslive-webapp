@@ -37,3 +37,5 @@ th, td { text-align: left; padding: .4rem; border-bottom: 1px solid var(--line);
 .timeline .sender { font-weight: 600; margin-right: .3rem; }
 .timeline img { display: block; max-width: 100%; max-height: 320px; margin-top: .3rem; }
 .note { padding: .5rem .8rem; border-left: 3px solid var(--accent); background: #fafafa; }
+.config dt { font-weight: 600; margin-top: .8rem; }
+.config dd { margin: .2rem 0 0; overflow-wrap: anywhere; }

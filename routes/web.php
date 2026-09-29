@@ -20,8 +20,7 @@ Route::get('/e/{fileId}', [EventController::class, 'show'])
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/settings', [SettingsController::class, 'edit'])->name('settings');
-    Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::get('/settings', [SettingsController::class, 'show'])->name('settings');
     Route::post('/settings/folder', [SettingsController::class, 'folder'])->name('settings.folder');
     Route::get('/events/{owner}', [DashboardController::class, 'events'])->middleware('throttle:60,1')->name('events');
 });

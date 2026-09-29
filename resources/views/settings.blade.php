@@ -5,12 +5,7 @@
 @section('content')
     <h1>Beállítások</h1>
 
-    <form method="post" action="{{ route('settings.update') }}" class="stack">
-        @csrf
-        @method('PUT')
-        @include('partials.user-fields', ['user' => $user, 'allowedEmails' => $allowedEmails])
-        <button type="submit">Mentés</button>
-    </form>
+    @include('partials.user-config', ['config' => $config])
 
     <h2>Google Drive</h2>
     <p>
