@@ -2,7 +2,7 @@
 
 return [
 
-    // Ennyi eseményt (spreadsheetet) tarthat meg alapból egy user; a többit a rotáció kukába teszi.
+    // Ennyi eseményt (esemény fájlt) tarthat meg alapból egy user; a többit a rotáció kukába teszi.
     'default_max_events' => (int) env('SOSLIVE_DEFAULT_MAX_EVENTS', 100),
 
     // Egy tulaj eseménylistájában legfeljebb ennyit kérünk le a Drive-ból.

@@ -14,8 +14,8 @@ Route::get('/auth/google/callback', [GoogleController::class, 'callback'])->name
 Route::post('/logout', [GoogleController::class, 'logout'])->name('logout');
 
 // Publikus esemény végoldal – aki ismeri az URL-t, láthatja.
-Route::get('/e/{spreadsheetId}', [EventController::class, 'show'])
-    ->where('spreadsheetId', '[A-Za-z0-9_-]{20,100}')
+Route::get('/e/{fileId}', [EventController::class, 'show'])
+    ->where('fileId', '[A-Za-z0-9_-]{20,100}')
     ->name('event');
 
 Route::middleware('auth')->group(function () {

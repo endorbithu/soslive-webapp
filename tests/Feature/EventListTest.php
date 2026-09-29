@@ -12,8 +12,8 @@ class EventListTest extends TestCase
     use RefreshDatabase;
 
     private const EVENTS = [
-        ['id' => 'sheet-2', 'name' => '2026-09-29 10:00:00', 'createdTime' => '2026-09-29T10:00:00Z'],
-        ['id' => 'sheet-1', 'name' => '2026-09-28 08:00:00', 'createdTime' => '2026-09-28T08:00:00Z'],
+        ['id' => 'event-2', 'name' => '2026-09-29 10:00:00.json', 'createdTime' => '2026-09-29T10:00:00Z'],
+        ['id' => 'event-1', 'name' => '2026-09-28 08:00:00.json', 'createdTime' => '2026-09-28T08:00:00Z'],
     ];
 
     private function fakeGoogle(array $events = self::EVENTS, bool $folderTrashed = false): void
@@ -38,7 +38,8 @@ class EventListTest extends TestCase
         Http::assertSent(fn ($r) => str_contains($r->url(), 'drive/v3/files?')
             && $r->hasHeader('Authorization', 'Bearer owner-token')
             && $r['pageSize'] == 42
-            && str_contains($r['q'], "'{$owner->drive_folder_id}' in parents"));
+            && str_contains($r['q'], "'{$owner->drive_folder_id}' in parents")
+            && str_contains($r['q'], "mimeType='application/json'"));
     }
 
     public function test_list_is_limited_by_config(): void

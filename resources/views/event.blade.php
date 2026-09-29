@@ -17,11 +17,8 @@
         <h2>Idővonal</h2>
         <ol id="timeline" class="timeline"></ol>
 
-        <p>
-            <a href="https://docs.google.com/spreadsheets/d/{{ $spreadsheetId }}/edit" target="_blank" rel="noopener">Megnyitás Google Sheetsben</a>
-            <span class="muted">– ha az esemény tulajdonosa megosztotta veled, ott üzenetet is írhatsz (új sor, E oszlop).</span>
-        </p>
+        <p class="note">SMS-ben válaszolhatsz arra a számra, ahonnan az értesítést kaptad.</p>
     </div>
 
-    @include('partials.config', ['config' => ['page' => 'event', 'spreadsheetId' => $spreadsheetId]])
+    @include('partials.config', ['config' => ['page' => 'event', 'fileId' => $fileId]])
 @endsection

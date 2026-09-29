@@ -11,10 +11,10 @@ use Illuminate\Http\Response;
  */
 class EventController extends Controller
 {
-    public function show(string $spreadsheetId): Response
+    public function show(string $fileId): Response
     {
         return response()
-            ->view('event', ['spreadsheetId' => $spreadsheetId])
+            ->view('event', ['fileId' => $fileId])
             ->header('X-Robots-Tag', 'noindex, nofollow');
     }
 }

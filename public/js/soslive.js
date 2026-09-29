@@ -1,7 +1,7 @@
 /*
  * SOSlive böngésző-oldali logika. A web csak olvas: az eseménylistát a backend adja (/events/{owner}),
  * az esemény tartalmát a böngésző közvetlenül a Google API-ból olvassa API key-jel
- * (az esemény fájlok „bárki a linkkel olvashatja” megosztásúak). Formátum: docs/SHEET_FORMAT.md
+ * (az esemény JSON fájlok „bárki a linkkel olvashatja” megosztásúak). Formátum: docs/EVENT_FORMAT.md
  */
 (function () {
     'use strict';
@@ -11,7 +11,6 @@
     const cfg = JSON.parse(cfgEl.textContent);
 
     const DRIVE = 'https://www.googleapis.com/drive/v3/files';
-    const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
     const HLS_JS = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
 
     class HttpError extends Error {
@@ -28,12 +27,18 @@
         Object.entries(params || {}).forEach(([k, v]) => u.searchParams.set(k, v));
         u.searchParams.set('key', cfg.apiKey);
 
-        const res = await fetch(u);
+        const res = await fetch(u, { cache: 'no-store' });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new HttpError(res.status, err.error && err.error.message);
         }
-        return res.json();
+        return res.text().then((text) => {
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                throw new HttpError(res.status, 'Érvénytelen JSON');
+            }
+        });
     }
 
     // ---- Segédek ------------------------------------------------------------------------------
@@ -63,12 +68,14 @@
         return isNaN(d) ? String(value) : d.toLocaleString('hu-HU');
     }
 
-    function parseCoord(value) {
-        const m = String(value || '').match(/^\s*(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)\s*$/);
-        if (!m) return null;
-        const lat = parseFloat(m[1]);
-        const lng = parseFloat(m[2]);
-        return (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) ? { lat, lng } : null;
+    function coord(lat, lng) {
+        lat = Number(lat);
+        lng = Number(lng);
+        return (isFinite(lat) && isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) ? { lat, lng } : null;
+    }
+
+    function displayName(fileName) {
+        return String(fileName || '').replace(/\.json$/i, '');
     }
 
     function mapLink(c) {
@@ -114,7 +121,7 @@
 
         status.textContent = body.events.length ? '' : 'Még nincs esemény.';
         list.replaceChildren(...body.events.map((f) => el('li', {}, [
-            el('a', { href: '/e/' + encodeURIComponent(f.id), text: f.name || f.id }),
+            el('a', { href: '/e/' + encodeURIComponent(f.id), text: displayName(f.name) || f.id }),
             ' ',
             el('span', { class: 'muted', text: formatTime(f.createdTime) }),
         ])));
@@ -173,33 +180,34 @@
         container.append(el('p', {}, [el('a', { href: safe, target: '_blank', rel: 'noopener', text: 'Stream link' })]));
     }
 
-    function renderRow(row) {
-        // row: [A, B idő, C koordináta, D feladó, E üzenet, F képek]
-        const [, time, coordRaw, sender, message, images] = row;
+    /**
+     * Egy bejegyzés: {t, type: 'pos'|'msg'|'img', ...}. Ismeretlen típust kihagyunk.
+     */
+    function renderEntry(entry) {
         const li = el('li');
-        if (time) li.append(el('time', { datetime: time, text: formatTime(time) }));
+        if (entry.t) li.append(el('time', { datetime: String(entry.t), text: formatTime(entry.t) }));
 
-        const coord = parseCoord(coordRaw);
-        if (coord) li.append('📍 ', mapLink(coord), ' ');
-        else if (coordRaw) li.append(el('span', { class: 'muted', text: coordRaw + ' ' }));
-
-        if (sender || message) {
-            if (sender) li.append(el('span', { class: 'sender', text: sender + ':' }));
-            if (message) li.append(el('span', { text: message }));
-        }
-
-        String(images || '').split(/[\s,]+/).filter(Boolean).forEach((raw) => {
-            const url = safeUrl(raw);
-            if (!url) return;
+        if (entry.type === 'pos') {
+            const c = coord(entry.lat, entry.lng);
+            if (!c) return null;
+            li.append('📍 ', mapLink(c));
+        } else if (entry.type === 'msg') {
+            if (entry.name) li.append(el('span', { class: 'sender', text: String(entry.name) + ':' }));
+            li.append(el('span', { text: String(entry.text || '') }));
+        } else if (entry.type === 'img') {
+            const url = safeUrl(entry.url);
+            if (!url) return null;
             li.append(el('a', { href: url, target: '_blank', rel: 'noopener' }, [
                 el('img', { src: url, alt: 'kép', loading: 'lazy' }),
             ]));
-        });
+        } else {
+            return null;
+        }
         return li;
     }
 
     async function initEvent() {
-        const id = cfg.spreadsheetId;
+        const id = cfg.fileId;
         const status = document.getElementById('event-status');
         const box = document.getElementById('event');
         const title = document.getElementById('event-title');
@@ -231,28 +239,30 @@
             }
             if (meta.trashed) return unavailable();
             if (!force && meta.modifiedTime === lastModified) return;
-            lastModified = meta.modifiedTime;
 
-            const data = await gapi(SHEETS + '/' + encodeURIComponent(id) + '/values/' + encodeURIComponent('A1:F'));
-            const rows = data.values || [];
+            const data = await gapi(fileUrl, { alt: 'media' });
+            lastModified = meta.modifiedTime; // csak sikeres letöltés után, különben a következő körben újrapróbáljuk
+            const entries = (data && Array.isArray(data.entries) ? data.entries : [])
+                .filter((e) => e && typeof e === 'object');
 
-            title.textContent = meta.name || 'Esemény';
-            document.title = (meta.name || 'Esemény') + ' – SOSlive';
+            const name = displayName(meta.name) || 'Esemény';
+            title.textContent = name;
+            document.title = name + ' – SOSlive';
 
-            const streamUrl = (rows[0] && rows[0][0]) || '';
+            const streamUrl = (data && typeof data.stream === 'string') ? data.stream : '';
             if (streamUrl !== lastStream) {
                 lastStream = streamUrl;
                 await renderStream(stream, streamUrl);
             }
 
-            const body = rows.slice(1).filter((r) => r.slice(1).some(Boolean));
-            const coords = body.map((r) => parseCoord(r[2])).filter(Boolean);
+            const coords = entries.filter((e) => e.type === 'pos').map((e) => coord(e.lat, e.lng)).filter(Boolean);
             position.replaceChildren();
             if (coords.length) position.append('Utolsó pozíció: ', mapLink(coords[coords.length - 1]));
 
             const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 50;
-            timeline.replaceChildren(...body.map(renderRow));
-            if (!body.length) timeline.append(el('li', { class: 'muted', text: 'Még nincs bejegyzés.' }));
+            const items = entries.map(renderEntry).filter(Boolean);
+            timeline.replaceChildren(...items);
+            if (!items.length) timeline.append(el('li', { class: 'muted', text: 'Még nincs bejegyzés.' }));
 
             status.textContent = '';
             box.hidden = false;
@@ -265,7 +275,7 @@
             status.textContent = 'Hiba: ' + e.message;
         }
 
-        // Olcsó polling: csak a Drive modifiedTime-ot nézzük, a Sheets értékeket csak változáskor kérjük le.
+        // Olcsó polling: csak a fájl modifiedTime-ját nézzük, a tartalmat csak változáskor töltjük le.
         setInterval(() => {
             if (document.hidden) return;
             refresh(false).catch((e) => console.warn('SOSlive frissítés hiba', e));
