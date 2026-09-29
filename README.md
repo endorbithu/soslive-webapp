@@ -2,7 +2,8 @@
 
 A SOSlive mobil appok webes felülete. Minimál Laravel backend, az esemény-adatok (stream link, pozíció,
 chat, képek) **nem a backenden**, hanem a user saját Google Drive-jában, eseményenként egy Google Sheets
-fájlban vannak; a böngésző közvetlenül a Google API-kkal olvassa/írja őket. Formátum: [docs/SHEET_FORMAT.md](docs/SHEET_FORMAT.md).
+fájlban vannak. A web **csak olvas**: az eseményeket a böngésző közvetlenül a Google API-ból olvassa API key-jel,
+írni csak a mobil app (és a Google Sheets felülete) ír. Formátum: [docs/SHEET_FORMAT.md](docs/SHEET_FORMAT.md).
 
 ## Mit tárol a backend
 
@@ -18,21 +19,21 @@ fájlban vannak; a böngésző közvetlenül a Google API-kkal olvassa/írja ők
 | Oldal | Ki | Honnan jön az adat |
 |---|---|---|
 | `/` | vendég | Google belépés gomb |
-| `/dashboard` | belépett user | saját + a vele megosztott userek eseményei (Drive `files.list` a böngészőből, max. 100 / `max_events`) |
-| `/e/{spreadsheetId}` | **bárki**, aki ismeri a linket | vendég: Sheets API + API key (csak olvasás); jogosult belépett user: a tulaj tokenjével, chat írással |
+| `/dashboard` | belépett user | saját + a vele megosztott userek eseményei, max. 100 / `max_events` (a listát a backend adja) |
+| `/events/{owner}` | belépett user | JSON eseménylista (ID, cím, idő), ha `owner == én` vagy az emailem szerepel a tulaj `user_allowed_emails` listájában; a backend a tulaj tokenjével kéri le a Drive-ból |
+| `/e/{spreadsheetId}` | **bárki**, aki ismeri a linket | Sheets API + API key, csak olvasás; „Megnyitás Google Sheetsben” link |
 | `/settings` | belépett user | értesítendők, hozzáférők, Drive mappa ellenőrzés/újralétrehozás |
-| `/token/{owner}` | belépett user | JSON: rövid életű access token a tulaj nevében, ha `owner == én` vagy az emailem szerepel a tulaj `user_allowed_emails` listájában |
 | `/admin` | admin | userek listája, `max_events` / értesítendők / hozzáférők szerkesztése, törlés |
 
-Jogosultság: egy user a saját eseményeit, és azon userek eseményeit látja (és írhat a chatjükbe), akik
-felvették az email címét. A publikus link csak olvasásra ad hozzáférést, és csak ahhoz az egy eseményhez.
+Jogosultság: egy user a saját eseményeit, és azon userek eseményeit látja a listában, akik felvették az email
+címét. A publikus link csak olvasásra ad hozzáférést, és csak ahhoz az egy eseményhez. Google token a böngészőhöz
+nem kerül.
 
-**Megjegyzés (biztonság):** a megosztott néző böngészője 1 órára megkapja a tulaj `drive.file` access tokenjét.
-Ez csak az app által létrehozott fájlokhoz (a SOSlive mappa és az események) fér hozzá, a user többi Drive
-tartalmához nem.
+Chat: a webről nem lehet írni. Ha a mobil app az esemény létrehozásakor szerkesztői jogot ad az értesítendőknek,
+ők a Google Sheetsben írhatnak (lásd [docs/SHEET_FORMAT.md](docs/SHEET_FORMAT.md)); a web ezt is megjeleníti.
 
 `max_events`: ha több esemény van, a legrégebbiek a Drive kukájába kerülnek (30 napig visszaállíthatók).
-A mobil app új esemény létrehozásakor, a web a tulaj listaoldalának megnyitásakor végzi.
+Ezt a mobil app végzi új esemény létrehozásakor.
 
 ## Google Cloud beállítás
 
@@ -41,7 +42,8 @@ A mobil app új esemény létrehozásakor, a web a tulaj listaoldalának megnyit
 3. OAuth consent screen: scope-ok `openid`, `email`, `profile`, `https://www.googleapis.com/auth/drive.file`
    (a `drive.file` nem „restricted” scope, nem kell hozzá CASA audit).
 4. OAuth client (Web application): redirect URI `https://<domain>/auth/google/callback`.
-5. API key a böngészőnek: korlátozás *HTTP referrer* = a webapp domainje, *API restrictions* = Drive API + Sheets API.
+5. API key a böngészőnek (kötelező, ezzel olvassa az eseményeket): korlátozás *HTTP referrer* = a webapp domainje,
+   *API restrictions* = Drive API + Sheets API.
 6. `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_API_KEY`.
 
 ## Telepítés

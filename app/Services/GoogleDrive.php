@@ -9,8 +9,9 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 
 /**
- * A backend egyetlen Google-kapcsolata: access token a refresh tokenből, és a user SOSlive mappájának kezelése.
- * Esemény-adatot a backend nem olvas és nem ír – azt a böngésző végzi.
+ * A backend egyetlen Google-kapcsolata: access token a refresh tokenből, a user SOSlive mappájának kezelése
+ * és az eseménylista (csak metaadat). Esemény-tartalmat a backend nem olvas és nem ír – azt a böngésző
+ * olvassa API key-jel, írni pedig csak a mobil app és a Google Sheets felülete ír.
  */
 class GoogleDrive
 {
@@ -19,6 +20,8 @@ class GoogleDrive
     public const FILES_URL = 'https://www.googleapis.com/drive/v3/files';
 
     public const FOLDER_MIME = 'application/vnd.google-apps.folder';
+
+    public const SPREADSHEET_MIME = 'application/vnd.google-apps.spreadsheet';
 
     /**
      * Érvényes access token a user nevében: ['access_token' => ..., 'expires_at' => unix ts].
@@ -103,6 +106,23 @@ class GoogleDrive
         $user->forceFill(['drive_folder_id' => $folderId])->save();
 
         return $folderId;
+    }
+
+    /**
+     * A mappában lévő események (spreadsheetek), legújabb elöl. Csak metaadat: ID, cím, létrehozás ideje.
+     *
+     * @return list<array{id: string, name: string, createdTime: string}>
+     */
+    public function listEvents(string $accessToken, string $folderId, int $limit): array
+    {
+        $response = Http::withToken($accessToken)->get(self::FILES_URL, [
+            'q' => "'".str_replace(['\\', "'"], ['\\\\', "\\'"], $folderId)."' in parents and trashed=false and mimeType='".self::SPREADSHEET_MIME."'",
+            'orderBy' => 'createdTime desc',
+            'pageSize' => $limit,
+            'fields' => 'files(id,name,createdTime)',
+        ])->throw();
+
+        return $response->json('files') ?? [];
     }
 
     public function findFolder(string $accessToken): ?string
