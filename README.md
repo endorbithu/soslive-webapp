@@ -18,15 +18,22 @@ vannak. A web **csak olvas**: az eseményeket a böngésző közvetlenül a Goog
 
 ## Működés
 
-| Oldal | Ki | Honnan jön az adat |
-|---|---|---|
-| `/` | vendég | Google belépés gomb |
-| `/dashboard` | belépett user | saját + a vele megosztott userek eseményei, max. 100 / `max_events` (a listát a backend adja) |
-| `/events/{owner}` | belépett user | JSON eseménylista (ID, cím, idő), ha `owner == én` vagy az emailem szerepel a tulaj `user_allowed_emails` listájában; a backend a tulaj tokenjével kéri le a Drive-ból |
-| `/e/{fileId}` | **bárki**, aki ismeri a linket | Drive API + API key, csak olvasás (keresők nem indexelik) |
-| `/settings` | belépett user | értesítendők, hozzáférők csak olvashatóan („csak a mobil appban módosítható”); Drive mappa ellenőrzés/újralétrehozás |
-| `/api/session`, `/api/config` | mobil app (Google ID token) | belépés, config olvasás / írás – [docs/MOBILE_API.md](docs/MOBILE_API.md) |
-| `/admin` | admin | userek listája, `max_events` szerkesztése, config megtekintése, törlés |
+Az oldalak két zónára oszlanak (részletek: [docs/CACHING.md](docs/CACHING.md)):
+- **statikus oldalak** – cookie és session nélkül, mindenkinek ugyanaz a HTML, reverse proxyban (Varnish, Cloudflare)
+  cache-elhetők; a userfüggő adatot a JS kéri le az `/app/...` végpontokról;
+- **dinamikus zóna `/app` alatt** – session-nel (a cookie útvonala `/app`), sosem cache-elődik.
+
+| Útvonal | Zóna | Ki | Mi |
+|---|---|---|---|
+| `/` | statikus | bárki | kezdőlap, Google belépés |
+| `/dashboard` | statikus | belépett user | saját + a vele megosztott userek eseményei, max. 100 / `max_events` |
+| `/settings` | statikus | belépett user | értesítendők, hozzáférők csak olvashatóan („csak a mobil appban módosítható”); Drive mappa ellenőrzés |
+| `/e/{fileId}` | statikus | **bárki**, aki ismeri a linket | Drive API + API key, csak olvasás (keresők nem indexelik); vendégnél a backendet sem hívja |
+| `/app/me` | dinamikus | bárki | JSON: belépett user (vendégnek `null`), CSRF token, látható tulajok, config |
+| `/app/events/{owner}` | dinamikus | belépett user | JSON eseménylista (ID, cím, idő), ha `owner == én` vagy az emailem szerepel a tulaj `user_allowed_emails` listájában; a backend a tulaj tokenjével kéri le a Drive-ból |
+| `/app/auth/google`, `/app/logout`, `/app/settings/folder` | dinamikus | | belépés, kilépés, Drive mappa újralétrehozás |
+| `/app/admin` | dinamikus | admin | userek listája, `max_events` szerkesztése, config megtekintése, törlés |
+| `/api/session`, `/api/config` | mobil API | mobil app (Google ID token) | belépés, config olvasás / írás – [docs/MOBILE_API.md](docs/MOBILE_API.md) |
 
 Jogosultság: egy user a saját eseményeit, és azon userek eseményeit látja a listában, akik felvették az email
 címét. A publikus link csak olvasásra ad hozzáférést, és csak ahhoz az egy eseményhez. Google token a böngészőhöz
@@ -44,7 +51,7 @@ Ezt a mobil app végzi új esemény létrehozásakor.
 2. APIs: **Google Drive API** engedélyezése (más nem kell).
 3. OAuth consent screen: scope-ok `openid`, `email`, `profile`, `https://www.googleapis.com/auth/drive.file`
    (a `drive.file` nem „restricted” scope, nem kell hozzá CASA audit).
-4. OAuth client (Web application): redirect URI `https://<domain>/auth/google/callback`. Ennek a client ID-nak kell
+4. OAuth client (Web application): redirect URI `https://<domain>/app/auth/google/callback`. Ennek a client ID-nak kell
    a mobil appoknak a serverAuthCode-ot kérnie.
    Android és iOS OAuth client: ezek ID-ja megy a `GOOGLE_MOBILE_CLIENT_IDS`-be (a mobil ID tokenek `aud` mezője).
 5. API key a böngészőnek (kötelező, ezzel olvassa az eseményeket): korlátozás *HTTP referrer* = a webapp domainje,
@@ -61,6 +68,8 @@ php artisan admin:create admin@example.com --name="Admin"
 ```
 
 A webszerver document rootja a `public/` mappa. Nincs frontend build lépés (vanilla JS: `public/js/soslive.js`).
+A `SESSION_PATH=/app` beállítás kötelező (ettől cache-elhetők a statikus oldalak). Reverse proxy (Varnish,
+Cloudflare) beállítása: [docs/CACHING.md](docs/CACHING.md).
 
 Fejlesztés: `php artisan serve`, tesztek: `php artisan test`, kódstílus: `./vendor/bin/pint`.
 

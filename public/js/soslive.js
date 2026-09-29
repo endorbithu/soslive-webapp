@@ -1,7 +1,9 @@
 /*
- * SOSlive böngésző-oldali logika. A web csak olvas: az eseménylistát a backend adja (/events/{owner}),
- * az esemény tartalmát a böngésző közvetlenül a Google API-ból olvassa API key-jel
- * (az esemény JSON fájlok „bárki a linkkel olvashatja” megosztásúak). Formátum: docs/EVENT_FORMAT.md
+ * SOSlive böngésző-oldali logika.
+ * - Az oldalak HTML-je statikus és reverse proxyban cache-elődik; minden userfüggő adat (belépett user, CSRF token,
+ *   tulajok, config) az /app/me JSON-ból jön, az eseménylista az /app/events/{owner}-ből.
+ * - Az esemény tartalmát a böngésző közvetlenül a Google Drive API-ból olvassa API key-jel
+ *   (az esemény JSON fájlok „bárki a linkkel olvashatja” megosztásúak). Formátum: docs/EVENT_FORMAT.md
  */
 (function () {
     'use strict';
@@ -87,22 +89,91 @@
         });
     }
 
+    // ---- Belépett user (/app/me), navigáció, üzenetek ------------------------------------------
+
+    // Csak jelzés a böngészőben, hogy érdemes-e az /app/me-t hívni ott, ahol nem kötelező (kezdőlap, eseményoldal) –
+    // így a nyilvános eseményoldal vendég nézői egyáltalán nem terhelik a backendet.
+    const LOGGED_IN_HINT = 'soslive.loggedIn';
+
+    function storage(action, value) {
+        try {
+            if (action === 'get') return window.localStorage.getItem(LOGGED_IN_HINT);
+            if (action === 'set') window.localStorage.setItem(LOGGED_IN_HINT, value);
+            if (action === 'remove') window.localStorage.removeItem(LOGGED_IN_HINT);
+        } catch (e) {
+            // privát mód / letiltott storage: nincs jelzés
+        }
+        return null;
+    }
+
+    async function loadMe() {
+        const res = await fetch(cfg.meUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' });
+        if (!res.ok) throw new HttpError(res.status);
+        const me = await res.json();
+        if (me.user) storage('set', '1');
+        else storage('remove');
+        return me;
+    }
+
+    function csrfForm(action, me, buttonText, className) {
+        return el('form', { method: 'post', action, class: className || '' }, [
+            el('input', { type: 'hidden', name: '_token', value: me.csrf }),
+            el('button', { type: 'submit', class: className === 'inline' ? 'link' : '', text: buttonText }),
+        ]);
+    }
+
+    function renderNav(me) {
+        const nav = document.getElementById('nav');
+        if (!nav || !me.user) return;
+
+        const logout = csrfForm(cfg.logoutUrl, me, 'Kilépés', 'inline');
+        logout.addEventListener('submit', () => storage('remove'));
+        nav.replaceChildren(
+            el('a', { href: '/dashboard', text: 'Események' }),
+            el('a', { href: '/settings', text: 'Beállítások' }),
+            el('span', { class: 'muted', text: me.user.email }),
+            logout,
+        );
+    }
+
+    // Üzenetek query paraméterből (?msg=kód); csak a fix szövegtárból írunk ki, az URL-ből semmit.
+    const MESSAGES = {
+        login_failed: ['err', 'A Google bejelentkezés nem sikerült.'],
+        drive_scope: ['err', 'A működéshez engedélyezni kell a Google Drive hozzáférést (csak az app által létrehozott fájlok).'],
+        folder_error: ['err', 'A SOSlive mappát nem sikerült elérni / létrehozni a Drive-on. Próbáld újra a Beállításokban.'],
+        folder_ok: ['ok', 'A SOSlive mappa rendben van.'],
+    };
+
+    function showFlash() {
+        const flash = document.getElementById('flash');
+        const msg = MESSAGES[new URLSearchParams(window.location.search).get('msg')];
+        if (!flash || !msg) return;
+        flash.className = 'flash ' + msg[0];
+        flash.textContent = msg[1];
+        flash.hidden = false;
+    }
+
+    function loginPrompt(status, text) {
+        status.replaceChildren(text + ' ', el('a', { href: cfg.loginUrl, text: 'Belépés Google-fiókkal' }));
+    }
+
     // ---- Dashboard ----------------------------------------------------------------------------
 
-    async function loadOwner(owner, section) {
+    async function loadOwner(owner, section, me) {
         const status = section.querySelector('.status');
         const list = section.querySelector('.events');
 
         const res = await fetch(cfg.eventsUrl + '/' + owner.id, {
             headers: { Accept: 'application/json' },
             credentials: 'same-origin',
+            cache: 'no-store',
         });
         const body = await res.json().catch(() => ({}));
 
         if (!res.ok) {
             if (body.error === 'reauth') {
                 status.replaceChildren('A Google hozzáférés lejárt. ',
-                    el('a', { href: '/auth/google?consent=1', text: 'Lépj be újra' }));
+                    el('a', { href: cfg.loginUrl + '?consent=1', text: 'Lépj be újra' }));
             } else if (body.error === 'owner_reauth') {
                 status.textContent = 'A tulajdonosnak újra be kell lépnie a SOSlive-ba, addig az eseményei nem érhetők el.';
             } else {
@@ -115,7 +186,7 @@
             status.textContent = body.is_owner
                 ? 'A SOSlive mappa nem található a Drive-odban (törölve?).'
                 : 'A tulajdonos SOSlive mappája nem található.';
-            if (body.is_owner) section.append(document.getElementById('folder-missing').content.cloneNode(true));
+            if (body.is_owner) section.append(csrfForm(cfg.folderUrl, me, 'SOSlive mappa létrehozása'));
             return;
         }
 
@@ -127,13 +198,63 @@
         ])));
     }
 
-    function initDashboard() {
-        cfg.owners.forEach((owner) => {
-            const section = document.querySelector('.owner[data-owner-id="' + owner.id + '"]');
-            if (section) loadOwner(owner, section).catch((e) => {
+    function initDashboard(me) {
+        const status = document.getElementById('page-status');
+        if (!me.user) return loginPrompt(status, 'Az események megtekintéséhez lépj be.');
+        status.hidden = true;
+
+        const container = document.getElementById('owners');
+        me.owners.forEach((owner) => {
+            const section = el('section', { class: 'owner' }, [
+                el('h2', { text: owner.is_me ? 'Saját eseményeim' : owner.name + ' (' + owner.email + ')' }),
+                el('p', { class: 'status muted', text: 'Betöltés…' }),
+                el('ul', { class: 'events' }),
+            ]);
+            container.append(section);
+            loadOwner(owner, section, me).catch((e) => {
                 section.querySelector('.status').textContent = 'Hiba: ' + e.message;
             });
         });
+    }
+
+    // ---- Beállítások (csak olvasható; módosítani a mobil appban lehet) --------------------------
+
+    function initSettings(me) {
+        const status = document.getElementById('page-status');
+        if (!me.user) return loginPrompt(status, 'A beállítások megtekintéséhez lépj be.');
+        status.hidden = true;
+
+        const config = me.config;
+        const list = (id, items) => {
+            const dd = document.getElementById(id);
+            dd.replaceChildren();
+            if (!items.length) dd.textContent = '–';
+            items.forEach((item, i) => dd.append(...(i ? [el('br'), item] : [item])));
+        };
+        list('cfg-notification-emails', config.notification_emails);
+        list('cfg-notification-phones', config.notification_phones);
+        list('cfg-allowed-emails', config.allowed_emails);
+        document.getElementById('cfg-max-events').textContent = config.max_events;
+
+        if (config.drive_folder_id) {
+            const link = document.getElementById('cfg-folder-link');
+            link.href = 'https://drive.google.com/drive/folders/' + encodeURIComponent(config.drive_folder_id);
+            link.hidden = false;
+        }
+        document.querySelectorAll('form.csrf-form').forEach((form) => {
+            form.prepend(el('input', { type: 'hidden', name: '_token', value: me.csrf }));
+        });
+        document.getElementById('settings').hidden = false;
+    }
+
+    // ---- Kezdőlap -----------------------------------------------------------------------------
+
+    function initHome(me) {
+        const cta = document.getElementById('home-cta');
+        if (cta && me.user) {
+            cta.href = '/dashboard';
+            cta.textContent = 'Eseményeim';
+        }
     }
 
     // ---- Eseményoldal -------------------------------------------------------------------------
@@ -207,7 +328,7 @@
     }
 
     async function initEvent() {
-        const id = cfg.fileId;
+        const id = document.getElementById('event').dataset.fileId;
         const status = document.getElementById('event-status');
         const box = document.getElementById('event');
         const title = document.getElementById('event-title');
@@ -282,6 +403,29 @@
         }, Math.max(2, cfg.pollSeconds) * 1000);
     }
 
-    if (cfg.page === 'dashboard') initDashboard();
-    if (cfg.page === 'event') initEvent();
+    // ---- Indulás ------------------------------------------------------------------------------
+
+    async function init() {
+        showFlash();
+        if (cfg.page === 'event') initEvent();
+
+        // A dashboard és a beállítások mindig kéri a usert; a többi oldal csak akkor, ha a böngésző szerint be van lépve.
+        const needsMe = cfg.page === 'dashboard' || cfg.page === 'settings';
+        if (!needsMe && !storage('get')) return;
+
+        let me;
+        try {
+            me = await loadMe();
+        } catch (e) {
+            const status = document.getElementById('page-status');
+            if (status) status.textContent = 'Hiba: ' + e.message;
+            return;
+        }
+        renderNav(me);
+        if (cfg.page === 'dashboard') initDashboard(me);
+        if (cfg.page === 'settings') initSettings(me);
+        if (cfg.page === 'home') initHome(me);
+    }
+
+    init();
 })();

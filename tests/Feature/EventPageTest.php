@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -34,7 +33,6 @@ class EventPageTest extends TestCase
 
     public function test_home_page(): void
     {
-        $this->get('/')->assertOk()->assertSee(route('auth.google'));
-        $this->actingAs(User::factory()->create())->get('/')->assertRedirect(route('dashboard'));
+        $this->get('/')->assertOk()->assertSee(route('auth.google', [], false));
     }
 }

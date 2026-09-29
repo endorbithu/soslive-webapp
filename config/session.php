@@ -143,7 +143,8 @@ return [
     |
     */
 
-    'path' => env('SESSION_PATH', '/'),
+    // Csak az /app alatti (dinamikus) route-ok kapják meg a cookie-t, a statikus oldalak cache-elhetők maradnak.
+    'path' => env('SESSION_PATH', '/app'),
 
     /*
     |--------------------------------------------------------------------------

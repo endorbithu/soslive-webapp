@@ -35,12 +35,11 @@ class GoogleController extends Controller
         } catch (Throwable $e) {
             report($e);
 
-            return redirect()->route('home')->with('error', 'A Google bejelentkezés nem sikerült.');
+            return redirect()->route('home', ['msg' => 'login_failed']);
         }
 
         if (! in_array(GoogleDrive::DRIVE_SCOPE, $google->approvedScopes ?? [], true)) {
-            return redirect()->route('home')
-                ->with('error', 'A működéshez engedélyezni kell a Google Drive hozzáférést (csak az app által létrehozott fájlok).');
+            return redirect()->route('home', ['msg' => 'drive_scope']);
         }
 
         $user = User::findOrNewForGoogle($google->getId(), $google->getEmail());
@@ -52,17 +51,19 @@ class GoogleController extends Controller
 
         $drive->rememberAccessToken($user, $google->token, (int) ($google->expiresIn ?: 3600));
 
+        $params = [];
         try {
             $drive->ensureFolder($user, $google->token);
         } catch (Throwable $e) {
             report($e);
-            session()->flash('error', 'A SOSlive mappát nem sikerült elérni/létrehozni a Drive-on. Próbáld újra a Beállításokban.');
+            $params['msg'] = 'folder_error';
         }
 
         Auth::login($user, remember: true);
         request()->session()->regenerate();
 
-        return redirect()->route('dashboard');
+        // A statikus oldalak nem látják a sessiont, ezért üzenet csak kódként, query paraméterben megy át.
+        return redirect()->route('dashboard', $params);
     }
 
     public function logout(Request $request): RedirectResponse

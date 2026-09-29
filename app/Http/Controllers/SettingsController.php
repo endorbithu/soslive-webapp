@@ -4,24 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\GoogleReauthRequired;
 use App\Services\GoogleDrive;
-use App\Support\UserConfig;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 use Throwable;
 
 /**
- * Beállítások oldal: a user config csak olvasható (a mobil appban módosítható), a Drive mappa itt ellenőrizhető.
+ * A Beállítások oldal (statikus, routes/static.php) egyetlen írási művelete: a Drive mappa ellenőrzése / újralétrehozása.
  */
 class SettingsController extends Controller
 {
-    public function show(Request $request): View
-    {
-        $user = $request->user();
-
-        return view('settings', ['user' => $user, 'config' => UserConfig::toArray($user)]);
-    }
-
     public function folder(Request $request, GoogleDrive $drive): RedirectResponse
     {
         $user = $request->user();
@@ -34,9 +25,9 @@ class SettingsController extends Controller
         } catch (Throwable $e) {
             report($e);
 
-            return back()->with('error', 'A mappát nem sikerült létrehozni.');
+            return redirect()->route('settings', ['msg' => 'folder_error']);
         }
 
-        return back()->with('status', 'A SOSlive mappa rendben van.');
+        return redirect()->route('settings', ['msg' => 'folder_ok']);
     }
 }

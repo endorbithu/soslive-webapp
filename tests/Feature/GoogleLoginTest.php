@@ -40,7 +40,7 @@ class GoogleLoginTest extends TestCase
             'www.googleapis.com/drive/v3/files?fields=id' => Http::response(['id' => 'folder-new']),
         ]);
 
-        $this->get('/auth/google/callback')->assertRedirect(route('dashboard'));
+        $this->get(route('auth.google.callback'))->assertRedirect(route('dashboard'));
 
         $user = User::sole();
         $this->assertAuthenticatedAs($user);
@@ -66,7 +66,7 @@ class GoogleLoginTest extends TestCase
             'www.googleapis.com/drive/v3/files?*' => Http::response(['files' => [['id' => 'folder-mobile']]]),
         ]);
 
-        $this->get('/auth/google/callback');
+        $this->get(route('auth.google.callback'));
 
         $this->assertSame('folder-mobile', User::sole()->drive_folder_id);
         Http::assertNotSent(fn ($r) => $r->method() === 'POST');
@@ -76,7 +76,7 @@ class GoogleLoginTest extends TestCase
     {
         $this->fakeGoogleUser(['scopes' => ['openid', 'email', 'profile']]);
 
-        $this->get('/auth/google/callback')->assertRedirect(route('home'))->assertSessionHas('error');
+        $this->get(route('auth.google.callback'))->assertRedirect(route('home', ['msg' => 'drive_scope']));
         $this->assertGuest();
         $this->assertSame(0, User::count());
     }
@@ -85,7 +85,7 @@ class GoogleLoginTest extends TestCase
     {
         $this->fakeGoogleUser(['refresh' => '']);
 
-        $this->get('/auth/google/callback')->assertRedirect(route('auth.google', ['consent' => 1]));
+        $this->get(route('auth.google.callback'))->assertRedirect(route('auth.google', ['consent' => 1]));
         $this->assertGuest();
     }
 
@@ -95,7 +95,7 @@ class GoogleLoginTest extends TestCase
         $this->fakeGoogleUser(['refresh' => '']);
         Http::fake(['www.googleapis.com/drive/v3/files/folder-1*' => Http::response(['id' => 'folder-1', 'trashed' => false])]);
 
-        $this->get('/auth/google/callback')->assertRedirect(route('dashboard'));
+        $this->get(route('auth.google.callback'))->assertRedirect(route('dashboard'));
 
         $user->refresh();
         $this->assertSame('old-refresh', $user->google_refresh_token);
