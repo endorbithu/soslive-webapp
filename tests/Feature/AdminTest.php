@@ -55,16 +55,19 @@ class AdminTest extends TestCase
         $this->get(route('admin.users.index'))->assertOk()->assertSee('user@example.com');
         $this->get(route('admin.users.edit', $user))->assertOk()->assertSee('user@example.com');
 
+        $user->allowedEmails()->create(['email' => 'friend@example.com']);
+
+        // Az admin csak a max_events-et módosíthatja, a config a mobil app felelőssége.
         $this->put(route('admin.users.update', $user), [
             'max_events' => 7,
             'notification_emails' => 'n@example.com',
-            'notification_phones' => '',
             'allowed_emails' => 'a@example.com',
         ])->assertRedirect(route('admin.users.edit', $user));
 
         $user->refresh();
         $this->assertSame(7, $user->max_events);
-        $this->assertEqualsCanonicalizing(['a@example.com', 'n@example.com'], $user->allowedEmails()->pluck('email')->all());
+        $this->assertNull($user->notification_emails);
+        $this->assertSame(['friend@example.com'], $user->allowedEmails()->pluck('email')->all());
 
         $this->delete(route('admin.users.destroy', $user))->assertRedirect(route('admin.users.index'));
         $this->assertModelMissing($user);

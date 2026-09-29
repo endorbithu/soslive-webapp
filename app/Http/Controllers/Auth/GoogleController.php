@@ -14,8 +14,6 @@ use Throwable;
 
 class GoogleController extends Controller
 {
-    private const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-
     public function redirect(Request $request): SymfonyRedirect
     {
         $params = ['access_type' => 'offline', 'include_granted_scopes' => 'true'];
@@ -40,27 +38,17 @@ class GoogleController extends Controller
             return redirect()->route('home')->with('error', 'A Google bejelentkezés nem sikerült.');
         }
 
-        if (! in_array(self::DRIVE_SCOPE, $google->approvedScopes ?? [], true)) {
+        if (! in_array(GoogleDrive::DRIVE_SCOPE, $google->approvedScopes ?? [], true)) {
             return redirect()->route('home')
                 ->with('error', 'A működéshez engedélyezni kell a Google Drive hozzáférést (csak az app által létrehozott fájlok).');
         }
 
-        $user = User::where('google_id', $google->getId())->first()
-            ?? User::where('email', mb_strtolower($google->getEmail()))->first()
-            ?? new User(['max_events' => config('soslive.default_max_events')]);
-
-        $refreshToken = $google->refreshToken ?: $user->google_refresh_token;
-        if (! $refreshToken) {
+        $user = User::findOrNewForGoogle($google->getId(), $google->getEmail());
+        if (! $google->refreshToken && ! $user->google_refresh_token) {
             return redirect()->route('auth.google', ['consent' => 1]);
         }
 
-        $user->fill([
-            'google_id' => $google->getId(),
-            'email' => mb_strtolower($google->getEmail()),
-            'name' => $google->getName(),
-            'google_refresh_token' => $refreshToken,
-            'last_login_at' => now(),
-        ])->save();
+        $user->syncGoogleProfile($google->getId(), $google->getEmail(), $google->getName(), $google->refreshToken);
 
         $drive->rememberAccessToken($user, $google->token, (int) ($google->expiresIn ?: 3600));
 

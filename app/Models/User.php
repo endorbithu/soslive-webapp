@@ -29,6 +29,30 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * A Google fiókhoz tartozó user (google_id, majd email alapján), vagy egy új, még nem mentett user.
+     */
+    public static function findOrNewForGoogle(string $googleId, string $email): self
+    {
+        return self::where('google_id', $googleId)->first()
+            ?? self::where('email', mb_strtolower($email))->first()
+            ?? new self(['max_events' => config('soslive.default_max_events')]);
+    }
+
+    /**
+     * Belépéskor (web vagy mobil) frissíti a Google profil adatait és menti a usert.
+     */
+    public function syncGoogleProfile(string $googleId, string $email, ?string $name, ?string $refreshToken): void
+    {
+        $this->fill([
+            'google_id' => $googleId,
+            'email' => mb_strtolower($email),
+            'name' => $name ?: $this->name,
+            'google_refresh_token' => $refreshToken ?: $this->google_refresh_token,
+            'last_login_at' => now(),
+        ])->save();
+    }
+
     /** @return HasMany<UserAllowedEmail, $this> */
     public function allowedEmails(): HasMany
     {

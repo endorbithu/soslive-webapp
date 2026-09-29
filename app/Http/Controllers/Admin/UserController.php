@@ -3,10 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\SettingsController;
 use App\Models\User;
 use App\Services\GoogleDrive;
-use App\Support\ListField;
+use App\Support\UserConfig;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,25 +29,16 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
-        return view('admin.users.edit', [
-            'user' => $user,
-            'allowedEmails' => $user->allowedEmails()->orderBy('email')->pluck('email')->implode("\n"),
-        ]);
+        return view('admin.users.edit', ['user' => $user, 'config' => UserConfig::toArray($user)]);
     }
 
+    /**
+     * Csak a max_events módosítható; a user config (értesítendők, hozzáférők) a mobil app felelőssége.
+     */
     public function update(Request $request, User $user): RedirectResponse
     {
-        $request->validate(['max_events' => ['required', 'integer', 'min:1', 'max:100000']]);
-        $data = SettingsController::validated($request);
-
-        DB::transaction(function () use ($request, $user, $data) {
-            $user->update([
-                'max_events' => (int) $request->input('max_events'),
-                'notification_emails' => ListField::join($data['notification_emails']),
-                'notification_phones' => ListField::join($data['notification_phones']),
-            ]);
-            SettingsController::syncAllowedEmails($user, array_merge($data['allowed_emails'], $data['notification_emails']));
-        });
+        $data = $request->validate(['max_events' => ['required', 'integer', 'min:1', 'max:100000']]);
+        $user->update(['max_events' => (int) $data['max_events']]);
 
         return redirect()->route('admin.users.edit', $user)->with('status', 'Mentve.');
     }

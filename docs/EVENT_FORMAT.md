@@ -14,16 +14,10 @@ projekt-szintű). Csak a **Google Drive API** kell (a Sheets API nem).
 | mimeType        | `application/vnd.google-apps.folder`     |
 | appProperties   | `{"soslive": "root"}`                    |
 
-Megkeresés (a mobil appnak is így kell):
-
-```
-GET https://www.googleapis.com/drive/v3/files
-  ?q=appProperties has { key='soslive' and value='root' } and mimeType='application/vnd.google-apps.folder' and trashed=false
-  &orderBy=createdTime&pageSize=1&fields=files(id)
-```
-
-Ha nincs találat, létre kell hozni. A web első belépéskor megkeresi / létrehozza, és az ID-ját eltárolja
-(`users.drive_folder_id`). A mappa **nem publikus**.
+A mappát a **backend** keresi meg / hozza létre (web belépéskor vagy a mobil `POST /api/session` hívásakor), és
+eltárolja az ID-ját (`users.drive_folder_id`). **A mobil app a mappa ID-t a `POST /api/session` válaszából
+(`drive_folder_id`) veszi** – nem keres és nem hoz létre saját mappát (lásd [MOBILE_API.md](MOBILE_API.md)).
+A mappa **nem publikus**.
 
 ## Esemény = egy JSON fájl a mappában
 
@@ -74,19 +68,14 @@ Mivel a fájlt egyetlen író (a tulaj telefonja) írja, nincs ütközés; a mob
 
 Az ismeretlen `type`-ú bejegyzéseket a web kihagyja, így a formátum visszafelé kompatibilisen bővíthető.
 
-## Chat SMS-ben
+## Válasz SMS-ben
 
 A webről nem lehet írni. Az eseményoldal ezt írja ki: *„SMS-ben válaszolhatsz arra a számra, ahonnan az
-értesítést kaptad.”* Ehhez:
+értesítést kaptad.”* A válasz SMS a tulaj telefonján a **natív SMS értesítésben** jelenik meg; a mobil app
+**nem olvassa** az SMS-eket, és nem kerülnek az esemény fájlba. Ehhez az értesítő SMS-t a tulaj saját számáról
+kell küldeni (a címzettek: `notification_phones` a mobil API configjából).
 
-- A mobil app a **saját számáról** küldje az értesítő SMS-t (így a címzett arra válaszol), és az esemény alatt a
-  bejövő SMS-eket `msg` bejegyzésként fűzze a fájlba.
-- **Csak a `notification_phones` listán szereplő számokról** fogadjon el üzenetet (spam ellen).
-- **A fájl publikus: telefonszám ne kerüljön bele.** A `name` legyen a névjegy neve, vagy maszkolt szám
-  (pl. `+36 30 *** **67`).
-- Aktív esemény alatt a bejövő SMS ne adjon hangot / rezgést (ne árulja el a bajba jutottat).
-- Megkötések: iOS-en az app nem olvashatja a bejövő SMS-eket; Androidon a `RECEIVE_SMS` engedélyhez a Google Play
-  Permission Declaration jóváhagyása kell.
+A `msg` bejegyzést csak a mobil app írja (pl. a tulaj saját üzenete). **A fájl publikus: telefonszám ne kerüljön bele.**
 
 ## Olvasás a webről (a web semmit nem ír)
 

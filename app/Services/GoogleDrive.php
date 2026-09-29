@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\GoogleReauthRequired;
 use App\Models\User;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Http;
 class GoogleDrive
 {
     public const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+
+    public const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
     public const FILES_URL = 'https://www.googleapis.com/drive/v3/files';
 
@@ -57,6 +60,31 @@ class GoogleDrive
         $response->throw();
 
         return $this->rememberAccessToken($user, $response->json('access_token'), (int) $response->json('expires_in', 3600));
+    }
+
+    /**
+     * A mobil app által kért serverAuthCode cseréje tokenekre (a web client ID-val és secrettel).
+     *
+     * @return array{access_token: string, refresh_token: ?string, expires_in: int, scopes: list<string>}
+     *
+     * @throws RequestException
+     */
+    public function exchangeServerAuthCode(string $code): array
+    {
+        $response = Http::asForm()->post(self::TOKEN_URL, [
+            'code' => $code,
+            'client_id' => config('services.google.client_id'),
+            'client_secret' => config('services.google.client_secret'),
+            'redirect_uri' => config('services.google.server_auth_code_redirect', ''),
+            'grant_type' => 'authorization_code',
+        ])->throw();
+
+        return [
+            'access_token' => $response->json('access_token'),
+            'refresh_token' => $response->json('refresh_token'),
+            'expires_in' => (int) $response->json('expires_in', 3600),
+            'scopes' => explode(' ', (string) $response->json('scope', '')),
+        ];
     }
 
     /**
