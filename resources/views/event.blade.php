@@ -13,14 +13,11 @@
         <h2>Idővonal</h2>
         <ol id="timeline" class="timeline"></ol>
 
-        <form id="chat" class="chat" hidden>
-            <input type="text" name="message" maxlength="1000" placeholder="Üzenet…" required autocomplete="off">
-            <button type="submit">Küldés</button>
-        </form>
-        @guest
-            <p class="muted"><a href="{{ route('auth.google') }}">Lépj be</a>, ha üzenetet írnál (csak jogosult felhasználók).</p>
-        @endguest
+        <p>
+            <a href="https://docs.google.com/spreadsheets/d/{{ $spreadsheetId }}/edit" target="_blank" rel="noopener">Megnyitás Google Sheetsben</a>
+            <span class="muted">– ha az esemény tulajdonosa megosztotta veled, ott üzenetet is írhatsz (új sor, E oszlop).</span>
+        </p>
     </div>
 
-    @include('partials.config', ['config' => ['page' => 'event', 'spreadsheetId' => $spreadsheetId, 'owners' => $owners]])
+    @include('partials.config', ['config' => ['page' => 'event', 'spreadsheetId' => $spreadsheetId]])
 @endsection
