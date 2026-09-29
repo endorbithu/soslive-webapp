@@ -1,28 +1,32 @@
 @extends('layouts.app')
 
 @section('title', 'Beállítások – SOSlive')
+@section('page', 'settings')
 
 @section('content')
     <h1>Beállítások</h1>
-
-    <form method="post" action="{{ route('settings.update') }}" class="stack">
-        @csrf
-        @method('PUT')
-        @include('partials.user-fields', ['user' => $user, 'allowedEmails' => $allowedEmails])
-        <button type="submit">Mentés</button>
-    </form>
-
-    <h2>Google Drive</h2>
-    <p>
-        Eseményeid a <strong>{{ config('soslive.folder_name') }}</strong> mappában vannak.
-        @if ($user->drive_folder_id)
-            <a href="https://drive.google.com/drive/folders/{{ $user->drive_folder_id }}" target="_blank" rel="noopener">Megnyitás a Drive-ban</a>
-        @endif
+    {{-- A beállítások a Drive-odon lévő config.json-ból jönnek; a böngésző olvassa be, a backend nem látja. --}}
+    <p id="page-status" class="muted">Betöltés…</p>
+    <p id="drive-access" hidden>
+        <button type="button">Google Drive hozzáférés engedélyezése</button>
     </p>
-    <p class="muted">Legfeljebb {{ $user->max_events }} eseményt tartunk meg, a régebbiek a Drive kukába kerülnek.
-        Ha törölted a mappát, itt létrehozhatsz egy újat (a régi események nem jönnek vissza).</p>
-    <form method="post" action="{{ route('settings.folder') }}">
-        @csrf
-        <button type="submit">Mappa ellenőrzése / újralétrehozása</button>
-    </form>
+
+    <div id="settings" hidden>
+        <p class="note">Ezek a beállítások csak a SOSlive mobil appban módosíthatók.</p>
+        <p id="cfg-missing" class="muted" hidden>Még nincs beállítás – a mobil appban adhatod meg.</p>
+        <dl class="config">
+            <dt>Értesítendő email címek</dt>
+            <dd id="cfg-notification-emails"></dd>
+            <dt>Értesítendő telefonszámok</dt>
+            <dd id="cfg-notification-phones"></dd>
+            <dt>Megtartott események száma</dt>
+            <dd id="cfg-max-events"></dd>
+        </dl>
+
+        <h2>Google Drive</h2>
+        <p>
+            Eseményeid a <strong>{{ config('soslive.folder_name') }}</strong> mappában vannak.
+            <a id="cfg-folder-link" href="#" target="_blank" rel="noopener" hidden>Megnyitás a Drive-ban</a>
+        </p>
+    </div>
 @endsection

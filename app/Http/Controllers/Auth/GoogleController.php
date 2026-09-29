@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\GoogleDrive;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,60 +15,32 @@ class GoogleController extends Controller
 {
     private const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
-    public function redirect(Request $request): SymfonyRedirect
+    public function redirect(): SymfonyRedirect
     {
-        $params = ['access_type' => 'offline', 'include_granted_scopes' => 'true'];
-        if ($request->boolean('consent')) {
-            // Csak így ad a Google újra refresh tokent egy korábban már engedélyezett usernek.
-            $params['prompt'] = 'consent';
-        }
-
+        // A drive.file engedélyt már itt megkérjük: így a böngésző később (Google Identity Services) consent képernyő
+        // nélkül kaphat tokent a saját Drive mappájához. Offline hozzáférés / refresh token nem kell, a backend nem hív Google API-t.
         return Socialite::driver('google')
             ->scopes(config('soslive.scopes'))
-            ->with($params)
+            ->with(['include_granted_scopes' => 'true'])
             ->redirect();
     }
 
-    public function callback(GoogleDrive $drive): RedirectResponse
+    public function callback(): RedirectResponse
     {
         try {
             $google = Socialite::driver('google')->user();
         } catch (Throwable $e) {
             report($e);
 
-            return redirect()->route('home')->with('error', 'A Google bejelentkezés nem sikerült.');
+            return redirect()->route('home', ['msg' => 'login_failed']);
         }
 
         if (! in_array(self::DRIVE_SCOPE, $google->approvedScopes ?? [], true)) {
-            return redirect()->route('home')
-                ->with('error', 'A működéshez engedélyezni kell a Google Drive hozzáférést (csak az app által létrehozott fájlok).');
+            return redirect()->route('home', ['msg' => 'drive_scope']);
         }
 
-        $user = User::where('google_id', $google->getId())->first()
-            ?? User::where('email', mb_strtolower($google->getEmail()))->first()
-            ?? new User(['max_events' => config('soslive.default_max_events')]);
-
-        $refreshToken = $google->refreshToken ?: $user->google_refresh_token;
-        if (! $refreshToken) {
-            return redirect()->route('auth.google', ['consent' => 1]);
-        }
-
-        $user->fill([
-            'google_id' => $google->getId(),
-            'email' => mb_strtolower($google->getEmail()),
-            'name' => $google->getName(),
-            'google_refresh_token' => $refreshToken,
-            'last_login_at' => now(),
-        ])->save();
-
-        $drive->rememberAccessToken($user, $google->token, (int) ($google->expiresIn ?: 3600));
-
-        try {
-            $drive->ensureFolder($user, $google->token);
-        } catch (Throwable $e) {
-            report($e);
-            session()->flash('error', 'A SOSlive mappát nem sikerült elérni/létrehozni a Drive-on. Próbáld újra a Beállításokban.');
-        }
+        $user = User::findOrNewForGoogle($google->getId(), $google->getEmail());
+        $user->syncGoogleProfile($google->getId(), $google->getEmail(), $google->getName());
 
         Auth::login($user, remember: true);
         request()->session()->regenerate();

@@ -1,10 +1,18 @@
-{{-- A böngésző JS konfigurációja. Csak publikus / a user számára amúgy is látható adat kerülhet ide. --}}
+{{-- A böngésző JS konfigurációja: csak publikus, mindenkinek azonos adat (a HTML reverse proxyban cache-elődik). --}}
 @php
-    $jsConfig = array_merge([
+    $jsConfig = [
+        'page' => trim($__env->yieldContent('page')),
         'apiKey' => config('services.google.api_key'),
+        'googleClientId' => config('services.google.client_id'),
+        'driveScope' => 'https://www.googleapis.com/auth/drive.file',
+        'folderName' => config('soslive.folder_name'),
+        'defaultMaxEvents' => config('soslive.default_max_events'),
+        'listLimit' => config('soslive.list_limit'),
         'pollSeconds' => config('soslive.poll_seconds'),
-        'eventsUrl' => url('/events'),
-    ], $config ?? []);
+        'meUrl' => route('me', [], false),
+        'loginUrl' => route('auth.google', [], false),
+        'logoutUrl' => route('logout', [], false),
+    ];
 @endphp
 <script type="application/json" id="soslive-config">@json($jsConfig)</script>
-<script src="{{ asset('js/soslive.js') }}" defer></script>
+<script src="/js/soslive.js?v={{ filemtime(public_path('js/soslive.js')) }}" defer></script>

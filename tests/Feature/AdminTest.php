@@ -47,28 +47,16 @@ class AdminTest extends TestCase
         $this->assertGuest('admin');
     }
 
-    public function test_admin_can_list_edit_and_delete_users(): void
+    public function test_admin_can_list_and_delete_users(): void
     {
         $this->loginAdmin();
         $user = User::factory()->create(['email' => 'user@example.com']);
 
         $this->get(route('admin.users.index'))->assertOk()->assertSee('user@example.com');
-        $this->get(route('admin.users.edit', $user))->assertOk()->assertSee('user@example.com');
-
-        $this->put(route('admin.users.update', $user), [
-            'max_events' => 7,
-            'notification_emails' => 'n@example.com',
-            'notification_phones' => '',
-            'allowed_emails' => 'a@example.com',
-        ])->assertRedirect(route('admin.users.edit', $user));
-
-        $user->refresh();
-        $this->assertSame(7, $user->max_events);
-        $this->assertEqualsCanonicalizing(['a@example.com', 'n@example.com'], $user->allowedEmails()->pluck('email')->all());
+        $this->get(route('admin.users.index', ['q' => 'nobody']))->assertOk()->assertDontSee('user@example.com');
 
         $this->delete(route('admin.users.destroy', $user))->assertRedirect(route('admin.users.index'));
         $this->assertModelMissing($user);
-        $this->assertSame(0, DB::table('user_allowed_emails')->count());
     }
 
     public function test_create_admin_command(): void

@@ -1,25 +1,14 @@
 @extends('layouts.app')
 
 @section('title', 'Események – SOSlive')
+@section('page', 'dashboard')
 
 @section('content')
-    <h1>Események</h1>
-    <div id="owners">
-        @foreach ($owners as $owner)
-            <section class="owner" data-owner-id="{{ $owner['id'] }}">
-                <h2>{{ $owner['is_me'] ? 'Saját eseményeim' : $owner['name'].' ('.$owner['email'].')' }}</h2>
-                <p class="status muted">Betöltés…</p>
-                <ul class="events"></ul>
-            </section>
-        @endforeach
-    </div>
-
-    <template id="folder-missing">
-        <form method="post" action="{{ route('settings.folder') }}">
-            @csrf
-            <button type="submit">SOSlive mappa létrehozása</button>
-        </form>
-    </template>
-
-    @include('partials.config', ['config' => ['page' => 'dashboard', 'owners' => $owners]])
+    <h1>Eseményeim</h1>
+    {{-- A listát a böngésző tölti be a saját Google Drive-odból (a SOSlive backend nem látja). --}}
+    <p id="page-status" class="muted">Betöltés…</p>
+    <p id="drive-access" hidden>
+        <button type="button">Google Drive hozzáférés engedélyezése</button>
+    </p>
+    <ul id="events" class="events"></ul>
 @endsection
