@@ -9,6 +9,6 @@
            value="{{ old('notification_phones', $user->notification_phones) }}">
 </label>
 <label>
-    Hozzáférés az eseményeimhez <span class="muted">(Google-fiók email címek, soronként egy – belépés után látják az eseményeidet és írhatnak a chatbe)</span>
+    Hozzáférés az eseményeimhez <span class="muted">(Google-fiók email címek, soronként egy – belépés után látják az eseménylistádat)</span>
     <textarea name="allowed_emails" rows="6">{{ old('allowed_emails', $allowedEmails) }}</textarea>
 </label>

@@ -20,16 +20,8 @@ class EventPageTest extends TestCase
             ->assertOk()
             ->assertSee(self::SHEET_ID)
             ->assertSee('public-key')
-            ->assertSee('"owners":[]', false);
-    }
-
-    public function test_logged_in_user_gets_visible_owners(): void
-    {
-        $user = User::factory()->create();
-
-        $this->actingAs($user)->get('/e/'.self::SHEET_ID)
-            ->assertOk()
-            ->assertSee('"is_me":true', false);
+            ->assertSee('https://docs.google.com/spreadsheets/d/'.self::SHEET_ID.'/edit', false)
+            ->assertDontSee('id="chat"', false);
     }
 
     public function test_invalid_id_is_404(): void

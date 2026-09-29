@@ -1,6 +1,6 @@
 # SOSlive Drive / Sheets adatszerződés
 
-A web és a mobil appok ugyanezt a formátumot olvassák/írják. **Minden kliens ugyanabban a Google Cloud
+A mobil appok írják, a web csak olvassa ezt a formátumot. **Minden kliens ugyanabban a Google Cloud
 projektben** legyen (web OAuth client + Android + iOS client), és csak a
 `https://www.googleapis.com/auth/drive.file` scope-ot kérje: így az app csak a saját maga által
 létrehozott fájlokat látja, de a web látja a mobil által létrehozottakat is (a drive.file hozzáférés
@@ -38,10 +38,14 @@ Létrehozás (mobil app, esemény indításakor):
 3. `POST https://www.googleapis.com/drive/v3/files/{id}/permissions` body: `{"type": "anyone", "role": "reader"}`
    – ettől nyitható meg a publikus végoldal backend nélkül (API key-jel). Egy link csak ezt az egy eseményt adja ki.
    (Google Workspace domainek tilthatják az „anyone with link” megosztást.)
-4. `A1` = stream URL, `B1:F1` = fejléc (lásd lent).
-5. **Rotáció**: ha a mappában a `soslive=event` jelölésű fájlok száma > `max_events`, a legrégebbieket
-   `PATCH files/{id}` `{"trashed": true}`-val kukába kell tenni. (A web is megteszi, amikor a tulaj megnyitja a listát.)
-6. A megosztható link: `https://<webapp>/e/{spreadsheetId}`
+4. **Chat írási jog** (opcionális): az értesítendő / hozzáférő email címeknek
+   `POST https://www.googleapis.com/drive/v3/files/{id}/permissions?sendNotificationEmail=true`
+   body: `{"type": "user", "role": "writer", "emailAddress": "..."}`. Ők a Google Sheets felületén új sort írhatnak
+   (D = név, E = üzenet); a Google értesítő emailje egyben riasztásként is szolgál.
+5. `A1` = stream URL, `B1:F1` = fejléc (lásd lent).
+6. **Rotáció** (a mobil app feladata, a web nem ír semmit): ha a mappában a `soslive=event` jelölésű fájlok
+   száma > `max_events`, a legrégebbieket `PATCH files/{id}` `{"trashed": true}`-val kukába kell tenni.
+7. A megosztható link: `https://<webapp>/e/{spreadsheetId}`
 
 ## Munkalap (az első munkalap)
 
@@ -57,9 +61,10 @@ Létrehozás (mobil app, esemény indításakor):
 - A1 változhat (pl. új stream URL), a web figyeli.
 - A kép URL-ek legyenek publikusan elérhetők (a publikus végoldal `<img>`-ként jeleníti meg őket).
 
-## Olvasás a webről
+## Olvasás a webről (a web semmit nem ír)
 
-- Publikus (vendég): `GET .../v4/spreadsheets/{id}/values/A1:F?key={API_KEY}`
-- Bejelentkezett, jogosult user: ugyanez a tulaj access tokenjével (a backend `/token/{owner}` adja).
+- Eseménylista: a backend kéri le a tulaj tokenjével (`files.list` a mappára), és csak ID-t, címet, időt ad át
+  a böngészőnek (`GET /events/{owner}`). A token nem kerül a böngészőhöz.
+- Esemény tartalma, mindenkinek: `GET .../v4/spreadsheets/{id}/values/A1:F?key={API_KEY}`
 - Frissítés: 5 mp-enként `GET drive/v3/files/{id}?fields=modifiedTime` (Drive kvóta bőséges), és csak
   változáskor jön a Sheets olvasás (a Sheets API kvótája szűkös: ~60 olvasás/perc/user, ~300/perc/projekt).

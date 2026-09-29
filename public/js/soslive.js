@@ -1,7 +1,7 @@
 /*
- * SOSlive böngésző-oldali logika. Az esemény-adatok a Google Drive / Sheets API-n keresztül,
- * közvetlenül a böngészőből jönnek-mennek; a backend csak access tokent ad (/token/{owner}).
- * Formátum: docs/SHEET_FORMAT.md
+ * SOSlive böngésző-oldali logika. A web csak olvas: az eseménylistát a backend adja (/events/{owner}),
+ * az esemény tartalmát a böngésző közvetlenül a Google API-ból olvassa API key-jel
+ * (az esemény fájlok „bárki a linkkel olvashatja” megosztásúak). Formátum: docs/SHEET_FORMAT.md
  */
 (function () {
     'use strict';
@@ -12,69 +12,28 @@
 
     const DRIVE = 'https://www.googleapis.com/drive/v3/files';
     const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
-    const SPREADSHEET_MIME = 'application/vnd.google-apps.spreadsheet';
     const HLS_JS = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
 
     class HttpError extends Error {
-        constructor(status, code, message) {
+        constructor(status, message) {
             super(message || ('HTTP ' + status));
             this.status = status;
-            this.code = code;
         }
     }
 
-    // ---- Tokenek ------------------------------------------------------------------------------
+    // ---- Google API (API key, csak olvasás) ---------------------------------------------------
 
-    const tokens = {};
+    async function gapi(url, params) {
+        const u = new URL(url);
+        Object.entries(params || {}).forEach(([k, v]) => u.searchParams.set(k, v));
+        u.searchParams.set('key', cfg.apiKey);
 
-    async function ownerToken(ownerId, force) {
-        const t = tokens[ownerId];
-        if (!force && t && t.expires_at * 1000 - Date.now() > 60000) return t;
-
-        const res = await fetch(cfg.tokenUrl + '/' + ownerId, {
-            headers: { Accept: 'application/json' },
-            credentials: 'same-origin',
-        });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new HttpError(res.status, body.error);
-        tokens[ownerId] = body;
-        return body;
-    }
-
-    // ---- Google API ---------------------------------------------------------------------------
-
-    /**
-     * auth: {ownerId} a tulaj tokenjével, vagy null → API key (csak publikus fájlokhoz).
-     */
-    async function gapi(url, opts) {
-        opts = opts || {};
-        const auth = opts.auth || null;
-
-        for (let attempt = 0; attempt < 2; attempt++) {
-            const u = new URL(url);
-            Object.entries(opts.params || {}).forEach(([k, v]) => {
-                if (v !== undefined && v !== null) u.searchParams.set(k, v);
-            });
-            const headers = {};
-            if (auth) {
-                headers.Authorization = 'Bearer ' + (await ownerToken(auth.ownerId, attempt > 0)).access_token;
-            } else if (cfg.apiKey) {
-                u.searchParams.set('key', cfg.apiKey);
-            }
-            if (opts.body) headers['Content-Type'] = 'application/json';
-
-            const res = await fetch(u, {
-                method: opts.method || 'GET',
-                headers,
-                body: opts.body ? JSON.stringify(opts.body) : undefined,
-            });
-            if (res.status === 401 && auth && attempt === 0) continue; // lejárt token → újat kérünk
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new HttpError(res.status, null, err.error && err.error.message);
-            }
-            return res.status === 204 ? null : res.json();
+        const res = await fetch(u);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new HttpError(res.status, err.error && err.error.message);
         }
+        return res.json();
     }
 
     // ---- Segédek ------------------------------------------------------------------------------
@@ -121,111 +80,52 @@
         });
     }
 
-    function tokenErrorText(e) {
-        if (e.code === 'reauth') return null; // külön kezeljük: újra-belépés link
-        if (e.code === 'owner_reauth') return 'A tulajdonosnak újra be kell lépnie a SOSlive-ba, addig az eseményei nem érhetők el.';
-        if (e.status === 403) return 'Nincs hozzáférésed.';
-        return 'Hiba történt (' + (e.message || e.status) + ').';
-    }
-
     // ---- Dashboard ----------------------------------------------------------------------------
-
-    function eventQuery(folderId) {
-        return "'" + folderId + "' in parents and trashed=false and mimeType='" + SPREADSHEET_MIME + "'";
-    }
 
     async function loadOwner(owner, section) {
         const status = section.querySelector('.status');
         const list = section.querySelector('.events');
-        const auth = { ownerId: owner.id };
 
-        let token;
-        try {
-            token = await ownerToken(owner.id);
-        } catch (e) {
-            if (e.code === 'reauth') {
+        const res = await fetch(cfg.eventsUrl + '/' + owner.id, {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        });
+        const body = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            if (body.error === 'reauth') {
                 status.replaceChildren('A Google hozzáférés lejárt. ',
                     el('a', { href: '/auth/google?consent=1', text: 'Lépj be újra' }));
+            } else if (body.error === 'owner_reauth') {
+                status.textContent = 'A tulajdonosnak újra be kell lépnie a SOSlive-ba, addig az eseményei nem érhetők el.';
             } else {
-                status.textContent = tokenErrorText(e);
+                status.textContent = res.status === 403 ? 'Nincs hozzáférésed.' : 'Hiba történt (' + res.status + ').';
             }
             return;
         }
 
-        const folderMissing = () => {
-            status.textContent = token.is_owner
+        if (body.folder_missing) {
+            status.textContent = body.is_owner
                 ? 'A SOSlive mappa nem található a Drive-odban (törölve?).'
                 : 'A tulajdonos SOSlive mappája nem található.';
-            if (token.is_owner) {
-                section.append(document.getElementById('folder-missing').content.cloneNode(true));
-            }
-        };
-
-        if (!token.folder_id) return folderMissing();
-        try {
-            const folder = await gapi(DRIVE + '/' + encodeURIComponent(token.folder_id), { auth, params: { fields: 'id,trashed' } });
-            if (folder.trashed) return folderMissing();
-        } catch (e) {
-            if (e.status === 404) return folderMissing();
-            status.textContent = 'Hiba: ' + e.message;
+            if (body.is_owner) section.append(document.getElementById('folder-missing').content.cloneNode(true));
             return;
         }
 
-        const pageSize = Math.min(cfg.listLimit, token.max_events);
-        let files;
-        try {
-            files = (await gapi(DRIVE, {
-                auth,
-                params: {
-                    q: eventQuery(token.folder_id),
-                    orderBy: 'createdTime desc',
-                    pageSize,
-                    fields: 'files(id,name,createdTime)',
-                },
-            })).files || [];
-        } catch (e) {
-            status.textContent = 'Hiba: ' + e.message;
-            return;
-        }
-
-        status.textContent = files.length ? '' : 'Még nincs esemény.';
-        list.replaceChildren(...files.map((f) => el('li', {}, [
+        status.textContent = body.events.length ? '' : 'Még nincs esemény.';
+        list.replaceChildren(...body.events.map((f) => el('li', {}, [
             el('a', { href: '/e/' + encodeURIComponent(f.id), text: f.name || f.id }),
             ' ',
             el('span', { class: 'muted', text: formatTime(f.createdTime) }),
         ])));
-
-        if (token.is_owner && files.length >= Math.min(pageSize, token.max_events)) {
-            rotate(auth, token).catch((e) => console.warn('SOSlive rotáció hiba', e));
-        }
-    }
-
-    /**
-     * max_events feletti (legrégebbi) esemény-fájlok kukába helyezése. Csak az appProperties-szel
-     * eseményként megjelölt fájlokhoz nyúl.
-     */
-    async function rotate(auth, token) {
-        const q = eventQuery(token.folder_id) + " and appProperties has { key='soslive' and value='event' }";
-        const ids = [];
-        let pageToken;
-        do {
-            const res = await gapi(DRIVE, {
-                auth,
-                params: { q, orderBy: 'createdTime desc', pageSize: 1000, fields: 'nextPageToken,files(id)', pageToken },
-            });
-            (res.files || []).forEach((f) => ids.push(f.id));
-            pageToken = res.nextPageToken;
-        } while (pageToken);
-
-        for (const id of ids.slice(token.max_events)) {
-            await gapi(DRIVE + '/' + encodeURIComponent(id), { auth, method: 'PATCH', body: { trashed: true } });
-        }
     }
 
     function initDashboard() {
         cfg.owners.forEach((owner) => {
             const section = document.querySelector('.owner[data-owner-id="' + owner.id + '"]');
-            if (section) loadOwner(owner, section);
+            if (section) loadOwner(owner, section).catch((e) => {
+                section.querySelector('.status').textContent = 'Hiba: ' + e.message;
+            });
         });
     }
 
@@ -306,22 +206,10 @@
         const stream = document.getElementById('stream');
         const position = document.getElementById('position');
         const timeline = document.getElementById('timeline');
-        const chat = document.getElementById('chat');
         const fileUrl = DRIVE + '/' + encodeURIComponent(id);
 
-        // Bejelentkezve: megkeressük, melyik (általunk látható) tulaj fájlja ez → írási jog a chathez.
-        let auth = null;
-        for (const owner of cfg.owners || []) {
-            try {
-                await gapi(fileUrl, { auth: { ownerId: owner.id }, params: { fields: 'id' } });
-                auth = { ownerId: owner.id };
-                break;
-            } catch (e) {
-                // nem ennek a tulajnak a fájlja, vagy nem elérhető – megyünk tovább
-            }
-        }
-        if (!auth && !cfg.apiKey) {
-            status.textContent = 'Az esemény nem érhető el.';
+        if (!cfg.apiKey) {
+            status.textContent = 'Az esemény nem érhető el (hiányzó Google API key).';
             return;
         }
 
@@ -336,7 +224,7 @@
         async function refresh(force) {
             let meta;
             try {
-                meta = await gapi(fileUrl, { auth, params: { fields: 'name,modifiedTime,trashed' } });
+                meta = await gapi(fileUrl, { fields: 'name,modifiedTime,trashed' });
             } catch (e) {
                 if (e.status === 404 || e.status === 403) return unavailable();
                 throw e;
@@ -345,7 +233,7 @@
             if (!force && meta.modifiedTime === lastModified) return;
             lastModified = meta.modifiedTime;
 
-            const data = await gapi(SHEETS + '/' + encodeURIComponent(id) + '/values/' + encodeURIComponent('A1:F'), { auth });
+            const data = await gapi(SHEETS + '/' + encodeURIComponent(id) + '/values/' + encodeURIComponent('A1:F'));
             const rows = data.values || [];
 
             title.textContent = meta.name || 'Esemény';
@@ -366,37 +254,9 @@
             timeline.replaceChildren(...body.map(renderRow));
             if (!body.length) timeline.append(el('li', { class: 'muted', text: 'Még nincs bejegyzés.' }));
 
-            status.textContent = auth ? '' : 'Csak olvasható nézet.';
+            status.textContent = '';
             box.hidden = false;
             if (atBottom && !force) window.scrollTo(0, document.body.scrollHeight);
-        }
-
-        if (auth && cfg.me) {
-            chat.hidden = false;
-            chat.addEventListener('submit', async (ev) => {
-                ev.preventDefault();
-                const input = chat.elements.message;
-                const text = input.value.trim();
-                if (!text) return;
-                const button = chat.querySelector('button');
-                button.disabled = true;
-                try {
-                    // RAW: a beírt szöveg sosem értelmeződik képletként.
-                    await gapi(SHEETS + '/' + encodeURIComponent(id) + '/values/' + encodeURIComponent('A:F') + ':append', {
-                        auth,
-                        method: 'POST',
-                        params: { valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS' },
-                        body: { values: [['', new Date().toISOString(), '', cfg.me.name, text, '']] },
-                    });
-                    input.value = '';
-                    await refresh(true);
-                    window.scrollTo(0, document.body.scrollHeight);
-                } catch (e) {
-                    alert('Az üzenet elküldése nem sikerült: ' + e.message);
-                } finally {
-                    button.disabled = false;
-                }
-            });
         }
 
         try {
