@@ -2,6 +2,10 @@
 
 @section('title', 'Esemény – SOSlive')
 
+@push('head')
+    <meta name="robots" content="noindex, nofollow">
+@endpush
+
 @section('content')
     <h1 id="event-title">Esemény</h1>
     <p id="event-status" class="muted">Betöltés…</p>

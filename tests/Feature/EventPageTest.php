@@ -21,7 +21,9 @@ class EventPageTest extends TestCase
             ->assertSee(self::SHEET_ID)
             ->assertSee('public-key')
             ->assertSee('https://docs.google.com/spreadsheets/d/'.self::SHEET_ID.'/edit', false)
-            ->assertDontSee('id="chat"', false);
+            ->assertDontSee('id="chat"', false)
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+            ->assertSee('<meta name="robots" content="noindex, nofollow">', false);
     }
 
     public function test_invalid_id_is_404(): void
