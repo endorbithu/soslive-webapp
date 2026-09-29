@@ -70,6 +70,32 @@ Cloudflare) beállítása: [docs/CACHING.md](docs/CACHING.md).
 
 Fejlesztés: `php artisan serve`, tesztek: `php artisan test`, kódstílus: `./vendor/bin/pint`.
 
+### Fejlesztői környezet Dockerrel (Laravel Sail)
+
+Csak Docker kell hozzá, helyi PHP nem:
+
+```bash
+./bin/sail-setup
+```
+
+A parancs:
+- létrehozza a `.env`-et MySQL-lel;
+- Dockerben lefuttatja a `composer install`-t;
+- elindítja az alkalmazást és a MySQL 8.4-et (`compose.yaml`);
+- kulcsot generál és migrál.
+
+Többször is futtatható. Az app a `http://localhost` címen fut; másik port: `APP_PORT=8080 ./bin/sail-setup`.
+Utána:
+
+```bash
+./vendor/bin/sail up -d          # indítás / ./vendor/bin/sail stop
+./vendor/bin/sail artisan admin:create te@example.com
+./vendor/bin/sail test
+```
+
+Google belépéshez a `.env`-ben meg kell adni a `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` és `GOOGLE_API_KEY` értékét. A Google
+Cloud Console-ban a redirect URI `http://localhost/app/auth/google/callback`, a JavaScript origin `http://localhost`.
+
 ## ⚠️ Teendő: kompromittált jelszavak
 
 A korábbi (törölt) alkalmazás `inc/config/config.php` fájlja éles adatbázis- és FTP-jelszavakat, valamint API app
