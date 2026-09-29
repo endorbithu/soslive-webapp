@@ -2,10 +2,10 @@
 
 return [
 
-    // Ennyi eseményt (esemény fájlt) tarthat meg alapból egy user; a többit a rotáció kukába teszi.
+    // Ha a user config.json-ja nem ad meg max_events-et, ennyi eseményt tart meg (rotáció a mobil appban).
     'default_max_events' => (int) env('SOSLIVE_DEFAULT_MAX_EVENTS', 100),
 
-    // Egy tulaj eseménylistájában legfeljebb ennyit kérünk le a Drive-ból.
+    // A dashboard legfeljebb ennyi eseményt listáz (a böngésző kéri le a Drive-ból).
     'list_limit' => (int) env('SOSLIVE_LIST_LIMIT', 100),
 
     // Eseményoldal: ennyi másodpercenként nézzük meg a fájl modifiedTime-ját.

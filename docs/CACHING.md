@@ -8,13 +8,13 @@ a PHP megszólítása nélkül. A backendnek csak a userfüggő, kis JSON válas
 | Zóna | Útvonalak | Cookie | `Cache-Control` |
 |---|---|---|---|
 | **Statikus** (`routes/static.php`) | `/`, `/dashboard`, `/settings`, `/e/{fileId}` | nincs (se kérésben, se válaszban) | `public, max-age=60, s-maxage=3600` + `ETag` (304 támogatással) |
-| **Dinamikus** (`routes/web.php`, `/app` prefix) | `/app/me`, `/app/events/{owner}`, `/app/auth/*`, `/app/logout`, `/app/settings/folder`, `/app/admin/*` | session / XSRF / remember cookie, **`path=/app`** | `no-store, private` |
-| **Mobil API** (`routes/api.php`) | `/api/*` | nincs (Google ID token fejlécben) | nem cache-elhető |
+| **Dinamikus** (`routes/web.php`, `/app` prefix) | `/app/me`, `/app/auth/*`, `/app/logout`, `/app/admin/*` | session / XSRF / remember cookie, **`path=/app`** | `no-store, private` |
 
 - A session cookie útvonala `/app` (`SESSION_PATH=/app`), ezért a böngésző a statikus oldalak kérésével **nem küld cookie-t**
   – így a Varnish alap-VCL is cache-eli őket, és a Cloudflare sem kerüli meg a cache-t.
-- A statikus HTML mindenkinek ugyanaz: nincs benne user adat, CSRF token vagy session üzenet. A belépett user, a CSRF token,
-  a tulajok és a config az `/app/me` JSON-ból jön; az üzenetek (pl. sikertelen belépés) `?msg=kód` query paraméterrel.
+- A statikus HTML mindenkinek ugyanaz: nincs benne user adat, CSRF token vagy session üzenet. A belépett user és a CSRF
+  token az `/app/me` JSON-ból jön, az eseménylistát és a configot a böngésző a Drive-ból olvassa; az üzenetek
+  (pl. sikertelen belépés) `?msg=kód` query paraméterrel.
 - A nyilvános eseményoldal vendégként egyáltalán nem hívja a backendet (a JS csak akkor kéri az `/app/me`-t, ha a böngésző
   korábban belépett).
 - A statikus oldalak URL-jei relatívak, az assetek `?v=<mtime>` verzióval hivatkozottak – a cache-elt HTML nem függ a kérés
@@ -37,12 +37,12 @@ Az oldalak csak deploykor változnak, ezért az `s-maxage` lehet hosszú is, ha 
 
 ## Varnish
 
-A statikus útvonalak kéréséből érdemes minden cookie-t eldobni (pl. analitika cookie-k miatt), az `/app` és `/api`
-útvonalakat pedig mindig továbbengedni:
+A statikus útvonalak kéréséből érdemes minden cookie-t eldobni (pl. analitika cookie-k miatt), az `/app` útvonalakat
+pedig mindig továbbengedni:
 
 ```vcl
 sub vcl_recv {
-    if (req.url ~ "^/(app|api)(/|$)") {
+    if (req.url ~ "^/app(/|$)") {
         return (pass);
     }
     if (req.method == "GET" || req.method == "HEAD") {
@@ -58,10 +58,10 @@ A többit (a `Cache-Control` / `s-maxage` tisztelete, `ETag` / 304) a Varnish al
 A Cloudflare alapból nem cache-el HTML-t, ehhez egy **Cache Rule** kell:
 
 - *When incoming requests match*:
-  `(not starts_with(http.request.uri.path, "/app") and not starts_with(http.request.uri.path, "/api"))`
+  `(not starts_with(http.request.uri.path, "/app"))`
 - *Then*: **Eligible for cache**, Edge TTL: **Use cache-control header if present**, Browser TTL: **Respect origin**.
 
-Az `/app` és `/api` válaszok `no-store, private` fejléccel mennek, ezeket a Cloudflare nem cache-eli.
+Az `/app` válaszok `no-store, private` fejléccel mennek, ezeket a Cloudflare nem cache-eli.
 
 ## Proxy mögötti futtatás
 
