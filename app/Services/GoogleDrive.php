@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 /**
  * A backend egyetlen Google-kapcsolata: access token a refresh tokenből, a user SOSlive mappájának kezelése
  * és az eseménylista (csak metaadat). Esemény-tartalmat a backend nem olvas és nem ír – azt a böngésző
- * olvassa API key-jel, írni pedig csak a mobil app és a Google Sheets felülete ír.
+ * olvassa API key-jel, írni csak a mobil app ír.
  */
 class GoogleDrive
 {
@@ -21,7 +21,7 @@ class GoogleDrive
 
     public const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
-    public const SPREADSHEET_MIME = 'application/vnd.google-apps.spreadsheet';
+    public const EVENT_MIME = 'application/json';
 
     /**
      * Érvényes access token a user nevében: ['access_token' => ..., 'expires_at' => unix ts].
@@ -109,14 +109,14 @@ class GoogleDrive
     }
 
     /**
-     * A mappában lévő események (spreadsheetek), legújabb elöl. Csak metaadat: ID, cím, létrehozás ideje.
+     * A mappában lévő események (JSON fájlok), legújabb elöl. Csak metaadat: ID, cím, létrehozás ideje.
      *
      * @return list<array{id: string, name: string, createdTime: string}>
      */
     public function listEvents(string $accessToken, string $folderId, int $limit): array
     {
         $response = Http::withToken($accessToken)->get(self::FILES_URL, [
-            'q' => "'".str_replace(['\\', "'"], ['\\\\', "\\'"], $folderId)."' in parents and trashed=false and mimeType='".self::SPREADSHEET_MIME."'",
+            'q' => "'".str_replace(['\\', "'"], ['\\\\', "\\'"], $folderId)."' in parents and trashed=false and mimeType='".self::EVENT_MIME."'",
             'orderBy' => 'createdTime desc',
             'pageSize' => $limit,
             'fields' => 'files(id,name,createdTime)',
