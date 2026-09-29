@@ -4,8 +4,6 @@ A SOSlive mobil appok webes felülete. Minimál Laravel backend, az esemény-ada
 chat, képek) **nem a backenden**, hanem a user saját Google Drive-jában, eseményenként egy Google Sheets
 fájlban vannak; a böngésző közvetlenül a Google API-kkal olvassa/írja őket. Formátum: [docs/SHEET_FORMAT.md](docs/SHEET_FORMAT.md).
 
-A régi alkalmazás a [`legacy/`](legacy/) mappában van, csak referenciának (a webszerver nem szolgálja ki).
-
 ## Mit tárol a backend
 
 - `users`: email, Google ID, név, **titkosított** Google refresh token, SOSlive Drive mappa ID,
@@ -61,6 +59,6 @@ Fejlesztés: `php artisan serve`, tesztek: `php artisan test`, kódstílus: `./v
 
 ## ⚠️ Teendő: kompromittált jelszavak
 
-A `legacy/inc/config/config.php` éles adatbázis- és FTP-jelszavakat, valamint API app tokent tartalmaz, és
-ezek a git historyban is benne vannak. **Ezeket le kell cserélni** (DB user jelszó, FTP jelszó, app token, salt),
+A korábbi (törölt) alkalmazás `inc/config/config.php` fájlja éles adatbázis- és FTP-jelszavakat, valamint API app
+tokent tartalmazott, és ezek a git historyban továbbra is benne vannak. **Ezeket le kell cserélni** (DB user jelszó, FTP jelszó, app token, salt),
 függetlenül attól, hogy a régi kód fut-e még.
