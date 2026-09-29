@@ -4,8 +4,11 @@
 @section('page', 'dashboard')
 
 @section('content')
-    <h1>Események</h1>
+    <h1>Eseményeim</h1>
+    {{-- A listát a böngésző tölti be a saját Google Drive-odból (a SOSlive backend nem látja). --}}
     <p id="page-status" class="muted">Betöltés…</p>
-    {{-- A tulajonkénti szekciókat a JS építi az /app/me válaszából. --}}
-    <div id="owners"></div>
+    <p id="drive-access" hidden>
+        <button type="button">Google Drive hozzáférés engedélyezése</button>
+    </p>
+    <ul id="events" class="events"></ul>
 @endsection

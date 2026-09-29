@@ -1,6 +1,7 @@
 # SOSlive Drive / esemény JSON adatszerződés
 
-Az esemény-fájlokat **csak a mobil app írja**, a web csak olvassa őket. **Minden kliens ugyanabban a Google
+Az esemény-fájlokat és a `config.json`-t **csak a mobil app írja**, a web csak olvassa őket. A mobil app a
+SOSlive backendet **nem hívja** – mindent a saját Google tokenjével, közvetlenül a Drive API-val végez. **Minden kliens ugyanabban a Google
 Cloud projektben** legyen (web OAuth client + Android + iOS client), és csak a
 `https://www.googleapis.com/auth/drive.file` scope-ot kérje: így az app csak a saját maga által
 létrehozott fájlokat látja, de a web látja a mobil által létrehozottakat is (a drive.file hozzáférés
@@ -14,10 +15,40 @@ projekt-szintű). Csak a **Google Drive API** kell (a Sheets API nem).
 | mimeType        | `application/vnd.google-apps.folder`     |
 | appProperties   | `{"soslive": "root"}`                    |
 
-A mappát a **backend** keresi meg / hozza létre (web belépéskor vagy a mobil `POST /api/session` hívásakor), és
-eltárolja az ID-ját (`users.drive_folder_id`). **A mobil app a mappa ID-t a `POST /api/session` válaszából
-(`drive_folder_id`) veszi** – nem keres és nem hoz létre saját mappát (lásd [MOBILE_API.md](MOBILE_API.md)).
+Megkeresés (a mobil app és a web is így keresi):
+
+```
+GET https://www.googleapis.com/drive/v3/files
+  ?q=appProperties has { key='soslive' and value='root' } and mimeType='application/vnd.google-apps.folder' and trashed=false
+  &orderBy=createdTime&pageSize=1&fields=files(id)
+```
+
+Ha nincs találat, létre kell hozni (`POST /drive/v3/files` a fenti tulajdonságokkal). **Több találatnál a legrégebbi az
+érvényes** (`orderBy=createdTime`) – így ha a mobil és a web egyszerre hozna létre mappát, mindkettő ugyanazt használja.
 A mappa **nem publikus**.
+
+## User config = `config.json` a mappában
+
+| Tulajdonság     | Érték                                    |
+|-----------------|------------------------------------------|
+| név             | `config.json`                            |
+| mimeType        | `application/json`                       |
+| appProperties   | `{"soslive": "config"}`                  |
+
+```json
+{
+  "v": 1,
+  "notification_emails": ["mom@example.com", "dad@example.com"],
+  "notification_phones": ["+36 30 123 4567"],
+  "max_events": 100
+}
+```
+
+- **Csak a mobil app írja** (a user a mobil appban állítja be); a web csak olvasható módon mutatja („csak a mobil
+  appban módosítható”). Nem publikus – ne adj rá „anyone” megosztást.
+- Létrehozás: `POST https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart` (metadata: név, mimeType,
+  `parents: [folderId]`, `appProperties`), módosítás: teljes felülírás `PATCH .../upload/drive/v3/files/{id}?uploadType=media`.
+- `max_events` hiányában 100. A `notification_*` listák a mobil app értesítéseihez (email / SMS) valók.
 
 ## Esemény = egy JSON fájl a mappában
 
@@ -30,8 +61,8 @@ Létrehozás (mobil app, esemény indításakor):
 2. `POST https://www.googleapis.com/drive/v3/files/{id}/permissions` body: `{"type": "anyone", "role": "reader"}`
    – ettől nyitható meg a publikus végoldal backend nélkül (API key-jel). Egy link csak ezt az egy eseményt adja ki.
    (Google Workspace domainek tilthatják az „anyone with link” megosztást.)
-3. **Rotáció**: ha a mappában a `soslive=event` jelölésű fájlok száma > `max_events`, a legrégebbieket
-   `PATCH files/{id}` `{"trashed": true}`-val kukába kell tenni.
+3. **Rotáció**: ha a mappában a `soslive=event` jelölésű fájlok száma > `max_events` (a `config.json`-ból), a
+   legrégebbieket `PATCH files/{id}` `{"trashed": true}`-val kukába kell tenni.
 4. A megosztható link: `https://<webapp>/e/{fileId}`
 
 Frissítés: a **teljes fájl felülírása** – `PATCH https://www.googleapis.com/upload/drive/v3/files/{id}?uploadType=media`.
@@ -73,14 +104,16 @@ Az ismeretlen `type`-ú bejegyzéseket a web kihagyja, így a formátum visszafe
 A webről nem lehet írni. Az eseményoldal ezt írja ki: *„SMS-ben válaszolhatsz arra a számra, ahonnan az
 értesítést kaptad.”* A válasz SMS a tulaj telefonján a **natív SMS értesítésben** jelenik meg; a mobil app
 **nem olvassa** az SMS-eket, és nem kerülnek az esemény fájlba. Ehhez az értesítő SMS-t a tulaj saját számáról
-kell küldeni (a címzettek: `notification_phones` a mobil API configjából).
+kell küldeni (a címzettek: `notification_phones` a `config.json`-ból).
 
 A `msg` bejegyzést csak a mobil app írja (pl. a tulaj saját üzenete). **A fájl publikus: telefonszám ne kerüljön bele.**
 
 ## Olvasás a webről (a web semmit nem ír)
 
-- Eseménylista: a backend kéri le a tulaj tokenjével (`files.list` a mappára, `mimeType='application/json'`), és
-  csak ID-t, címet, időt ad át a böngészőnek (`GET /events/{owner}`). A token nem kerül a böngészőhöz.
+- Saját eseménylista és `config.json`: a böngésző olvassa a **user saját Google tokenjével** (Google Identity Services,
+  `drive.file`), a backend nem vesz részt benne. Lista: `files.list` a mappára,
+  `appProperties has { key='soslive' and value='event' }`, `orderBy=createdTime desc`, `pageSize = min(100, max_events)`.
+  Mindenki csak a saját eseményeit látja.
 - Esemény, mindenkinek, API key-jel:
   - 5 mp-enként `GET https://www.googleapis.com/drive/v3/files/{id}?fields=name,modifiedTime,trashed&key={API_KEY}`
   - csak ha a `modifiedTime` változott: `GET https://www.googleapis.com/drive/v3/files/{id}?alt=media&key={API_KEY}`

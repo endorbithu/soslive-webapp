@@ -1,62 +1,59 @@
 # SOSlive webapp
 
-A SOSlive mobil appok webes felülete. Minimál Laravel backend, az esemény-adatok (stream link, pozíció,
-chat, képek) **nem a backenden**, hanem a user saját Google Drive-jában, eseményenként egy JSON fájlban
-vannak. A web **csak olvas**: az eseményeket a böngésző közvetlenül a Google Drive API-ból olvassa API key-jel,
-írni csak a mobil app ír. Formátum: [docs/EVENT_FORMAT.md](docs/EVENT_FORMAT.md).
+A SOSlive mobil appok webes felülete. Minimál Laravel backend: minden adat (események, user config) a user saját
+Google Drive-jában, JSON fájlokban van, és **csak a mobil app írja**. A web csak olvas, a mobil app pedig a backendet
+egyáltalán nem hívja – a user a mobil használata után bármikor beléphet a weben. Formátum:
+[docs/EVENT_FORMAT.md](docs/EVENT_FORMAT.md).
 
 ## Mit tárol a backend
 
-- `users`: email, Google ID, név, **titkosított** Google refresh token, SOSlive Drive mappa ID,
-  értesítendő emailek / telefonszámok (vesszővel, max 255), `max_events`, utolsó belépés.
-- `user_allowed_emails`: kik láthatják a user eseményeit (a notification emailek automatikusan bekerülnek).
-- A user config (értesítendők, hozzáférők) **csak a mobil appból módosítható** a [mobil API](docs/MOBILE_API.md)-n;
-  a web Beállítások oldala és az admin csak megjeleníti (az admin a `max_events`-et állíthatja).
+- `users`: email, Google ID, név, utolsó belépés (Google SSO). **Google tokent nem tárol, Google API-t nem hív.**
 - `admins`: admin felhasználók (Laravel `database` auth provider, külön `admin` guard).
-- Cache: a Google access token (titkosítva, lejárat előtt 5 percig). Esemény-adatot nem tárolunk és nem cache-elünk:
-  ha a user törli a fájlt / mappát a Drive-jából, az oldalon sem látszik.
+- Esemény-adatot és configot nem tárol és nem cache-el: ha a user törli a fájlt / mappát a Drive-jából, az oldalon sem látszik.
 
 ## Működés
 
+- **Mindenki csak a saját eseményeit látja** a weben. Az érintettek (értesítendők) emailt / SMS-t kapnak a mobil apptól
+  az esemény linkjével; a link (`/e/{fileId}`) belépés nélkül, bárkinek megnyílik.
+- A **saját eseménylistát és a configot a böngésző olvassa** a Drive-ból, a user saját Google tokenjével
+  (Google Identity Services, `drive.file`). A belépéskor megadott Drive engedély miatt ez többnyire magától megy; ha a
+  böngésző letiltja a Google ablakot, egy „Google Drive hozzáférés engedélyezése” gomb jelenik meg. A token a fül
+  `sessionStorage`-ában a lejáratáig (max. 1 óra) megmarad, kilépéskor törlődik.
+- **Beállítások**: a `config.json` (értesítendő emailek, telefonszámok, `max_events`) csak olvasható; módosítani csak a
+  mobil appban lehet.
+- **Chat**: a webről nem lehet írni; az eseményoldal szerint SMS-ben lehet válaszolni arra a számra, ahonnan az
+  értesítés jött (a válasz a tulaj telefonján natív SMS-ként jelenik meg).
+- `max_events`: a mobil app a legrégebbi eseményeket a Drive kukájába teszi (30 napig visszaállíthatók).
+
 Az oldalak két zónára oszlanak (részletek: [docs/CACHING.md](docs/CACHING.md)):
-- **statikus oldalak** – cookie és session nélkül, mindenkinek ugyanaz a HTML, reverse proxyban (Varnish, Cloudflare)
-  cache-elhetők; a userfüggő adatot a JS kéri le az `/app/...` végpontokról;
-- **dinamikus zóna `/app` alatt** – session-nel (a cookie útvonala `/app`), sosem cache-elődik.
 
 | Útvonal | Zóna | Ki | Mi |
 |---|---|---|---|
 | `/` | statikus | bárki | kezdőlap, Google belépés |
-| `/dashboard` | statikus | belépett user | saját + a vele megosztott userek eseményei, max. 100 / `max_events` |
-| `/settings` | statikus | belépett user | értesítendők, hozzáférők csak olvashatóan („csak a mobil appban módosítható”); Drive mappa ellenőrzés |
+| `/dashboard` | statikus | belépett user | saját események (a böngésző olvassa a Drive-ból), max. 100 / `max_events` |
+| `/settings` | statikus | belépett user | a `config.json` csak olvashatóan („csak a mobil appban módosítható”), Drive mappa link |
 | `/e/{fileId}` | statikus | **bárki**, aki ismeri a linket | Drive API + API key, csak olvasás (keresők nem indexelik); vendégnél a backendet sem hívja |
-| `/app/me` | dinamikus | bárki | JSON: belépett user (vendégnek `null`), CSRF token, látható tulajok, config |
-| `/app/events/{owner}` | dinamikus | belépett user | JSON eseménylista (ID, cím, idő), ha `owner == én` vagy az emailem szerepel a tulaj `user_allowed_emails` listájában; a backend a tulaj tokenjével kéri le a Drive-ból |
-| `/app/auth/google`, `/app/logout`, `/app/settings/folder` | dinamikus | | belépés, kilépés, Drive mappa újralétrehozás |
-| `/app/admin` | dinamikus | admin | userek listája, `max_events` szerkesztése, config megtekintése, törlés |
-| `/api/session`, `/api/config` | mobil API | mobil app (Google ID token) | belépés, config olvasás / írás – [docs/MOBILE_API.md](docs/MOBILE_API.md) |
+| `/app/me` | dinamikus | bárki | JSON: belépett user (vendégnek `null`) és CSRF token |
+| `/app/auth/google`, `/app/logout` | dinamikus | | belépés, kilépés |
+| `/app/admin` | dinamikus | admin | userek listája, törlés |
 
-Jogosultság: egy user a saját eseményeit, és azon userek eseményeit látja a listában, akik felvették az email
-címét. A publikus link csak olvasásra ad hozzáférést, és csak ahhoz az egy eseményhez. Google token a böngészőhöz
-nem kerül.
-
-Chat: a webről nem lehet írni. Az eseményoldal azt írja ki, hogy SMS-ben lehet válaszolni arra a számra, ahonnan
-az értesítés jött; a válasz a tulaj telefonján natív SMS-ként jelenik meg (nem kerül az esemény fájlba).
-
-`max_events`: ha több esemény van, a legrégebbiek a Drive kukájába kerülnek (30 napig visszaállíthatók).
-Ezt a mobil app végzi új esemény létrehozásakor.
+A statikus oldalak cookie és session nélkül, mindenkinek ugyanazzal a HTML-lel mennek, reverse proxyban (Varnish,
+Cloudflare) cache-elhetők; a dinamikus zóna (`/app`) session-nel, sosem cache-elődik.
 
 ## Google Cloud beállítás
 
-1. Egy Google Cloud projekt a web **és** a mobil appok OAuth kliensei számára (a `drive.file` hozzáférés projekt-szintű).
+1. Egy Google Cloud projekt a web **és** a mobil appok OAuth kliensei számára (a `drive.file` hozzáférés projekt-szintű:
+   a web csak így látja a mobil által létrehozott fájlokat).
 2. APIs: **Google Drive API** engedélyezése (más nem kell).
 3. OAuth consent screen: scope-ok `openid`, `email`, `profile`, `https://www.googleapis.com/auth/drive.file`
-   (a `drive.file` nem „restricted” scope, nem kell hozzá CASA audit).
-4. OAuth client (Web application): redirect URI `https://<domain>/app/auth/google/callback`. Ennek a client ID-nak kell
-   a mobil appoknak a serverAuthCode-ot kérnie.
-   Android és iOS OAuth client: ezek ID-ja megy a `GOOGLE_MOBILE_CLIENT_IDS`-be (a mobil ID tokenek `aud` mezője).
-5. API key a böngészőnek (kötelező, ezzel olvassa az eseményeket): korlátozás *HTTP referrer* = a webapp domainje,
-   *API restrictions* = Drive API.
-6. `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_API_KEY`, `GOOGLE_MOBILE_CLIENT_IDS`.
+   (a `drive.file` nem „restricted” scope, nem kell hozzá CASA audit). Élesben „In production” állapot.
+4. OAuth client (Web application):
+   - *Authorized redirect URIs*: `https://<domain>/app/auth/google/callback`,
+   - *Authorized JavaScript origins*: `https://<domain>` (a böngészőben kért Drive tokenhez).
+   A mobil appok saját (Android / iOS) OAuth klienst használnak ugyanebben a projektben.
+5. API key a böngészőnek (kötelező, ezzel olvassa a nyilvános eseményeket): korlátozás *HTTP referrer* = a webapp
+   domainje, *API restrictions* = Drive API.
+6. `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_API_KEY`.
 
 ## Telepítés
 

@@ -12,21 +12,26 @@
     <div class="table-wrap">
     <table>
         <thead>
-        <tr><th>Email</th><th>Név</th><th>Utolsó belépés</th><th>Max esemény</th><th>Hozzáférők</th><th>Drive</th><th></th></tr>
+        <tr><th>Email</th><th>Név</th><th>Regisztrált</th><th>Utolsó belépés</th><th></th></tr>
         </thead>
         <tbody>
         @forelse ($users as $user)
             <tr>
                 <td>{{ $user->email }}</td>
                 <td>{{ $user->name }}</td>
+                <td>{{ $user->created_at?->format('Y-m-d H:i') }}</td>
                 <td>{{ $user->last_login_at?->format('Y-m-d H:i') }}</td>
-                <td>{{ $user->max_events }}</td>
-                <td>{{ $user->allowed_emails_count }}</td>
-                <td>{{ $user->google_refresh_token ? 'OK' : 'újra belépés kell' }}</td>
-                <td><a href="{{ route('admin.users.edit', $user) }}">Szerkesztés</a></td>
+                <td>
+                    <form method="post" action="{{ route('admin.users.destroy', $user) }}" class="inline"
+                          onsubmit="return confirm('Biztosan törlöd? (A user Drive-jában lévő fájlok megmaradnak.)')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="link">Törlés</button>
+                    </form>
+                </td>
             </tr>
         @empty
-            <tr><td colspan="7" class="muted">Nincs user.</td></tr>
+            <tr><td colspan="5" class="muted">Nincs user.</td></tr>
         @endforelse
         </tbody>
     </table>

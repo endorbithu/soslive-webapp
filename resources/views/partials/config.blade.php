@@ -3,12 +3,15 @@
     $jsConfig = [
         'page' => trim($__env->yieldContent('page')),
         'apiKey' => config('services.google.api_key'),
+        'googleClientId' => config('services.google.client_id'),
+        'driveScope' => 'https://www.googleapis.com/auth/drive.file',
+        'folderName' => config('soslive.folder_name'),
+        'defaultMaxEvents' => config('soslive.default_max_events'),
+        'listLimit' => config('soslive.list_limit'),
         'pollSeconds' => config('soslive.poll_seconds'),
         'meUrl' => route('me', [], false),
-        'eventsUrl' => '/app/events',
         'loginUrl' => route('auth.google', [], false),
         'logoutUrl' => route('logout', [], false),
-        'folderUrl' => route('settings.folder', [], false),
     ];
 @endphp
 <script type="application/json" id="soslive-config">@json($jsConfig)</script>
