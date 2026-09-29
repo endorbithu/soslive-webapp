@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#
+# Fejlesztői környezet egy paranccsal, Laravel Sail-lel (Docker):   ./bin/sail-setup
+#
+# Létrehozza a .env-et (MySQL a Sail "mysql" konténerében), telepíti a composer csomagokat (helyi PHP nélkül,
+# Dockerben), elindítja a konténereket, kulcsot generál és migrál. Többször is futtatható.
+# Csak Docker kell hozzá. Utána: ./vendor/bin/sail up -d / stop, ./vendor/bin/sail artisan ..., ./vendor/bin/sail test
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+APP_PORT="${APP_PORT:-80}"
+APP_URL="http://localhost$([ "$APP_PORT" = "80" ] || echo ":$APP_PORT")"
+
+# 1. .env – a .env.example alapján, a Sail MySQL beállításaival
+if [ ! -f .env ]; then
+    echo "» .env létrehozása"
+    grep -vE '^#? ?DB_(CONNECTION|HOST|PORT|DATABASE|USERNAME|PASSWORD)=' .env.example \
+        | sed -e "s#^APP_URL=.*#APP_URL=${APP_URL}#" > .env
+    cat >> .env <<EOF
+
+# Laravel Sail (Docker)
+APP_PORT=${APP_PORT}
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=soslive
+DB_USERNAME=sail
+DB_PASSWORD=password
+EOF
+fi
+
+# 2. Composer csomagok (Dockerben, hogy a gépen ne kelljen PHP)
+if [ ! -f vendor/autoload.php ]; then
+    echo "» composer install"
+    docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/html \
+        laravelsail/php84-composer:latest composer install --no-interaction --ignore-platform-reqs
+fi
+
+# 3. Konténerek (az első indításkor a PHP image felépítése pár percig tart)
+echo "» sail up"
+./vendor/bin/sail up -d --build
+
+# 4. Alkalmazás kulcs
+if grep -qE '^APP_KEY=$' .env; then
+    ./vendor/bin/sail artisan key:generate --no-interaction
+fi
+
+# 5. Migrálás – megvárja, amíg a MySQL elindul
+echo "» migrálás (a MySQL indulására várva)"
+for i in $(seq 1 30); do
+    if ./vendor/bin/sail artisan migrate --force --no-interaction >/dev/null 2>&1; then
+        ./vendor/bin/sail artisan migrate:status --no-interaction | tail -n 3
+        break
+    fi
+    [ "$i" = 30 ] && { echo "A MySQL nem indult el időben: ./vendor/bin/sail logs mysql"; exit 1; }
+    sleep 2
+done
+
+cat <<EOF
+
+Kész: ${APP_URL}
+- Admin felhasználó:  ./vendor/bin/sail artisan admin:create te@example.com
+- Google belépéshez a .env-ben: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_API_KEY
+  (Google Cloud Console: redirect URI ${APP_URL}/app/auth/google/callback, JavaScript origin ${APP_URL})
+- Tesztek: ./vendor/bin/sail test
+EOF
