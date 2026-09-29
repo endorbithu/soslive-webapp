@@ -5,28 +5,35 @@ namespace App\Http\Controllers;
 use App\Exceptions\GoogleReauthRequired;
 use App\Models\User;
 use App\Services\GoogleDrive;
+use App\Support\UserConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 
+/**
+ * A statikus (cache-elhető) oldalak dinamikus adatai: ki van belépve, kiknek az eseményeit láthatja, eseménylista.
+ */
 class DashboardController extends Controller
 {
-    public function home(Request $request)
-    {
-        return $request->user() ? redirect()->route('dashboard') : view('home');
-    }
-
-    public function index(Request $request): View
+    /**
+     * Minden, amit a statikus oldalak a belépett userről tudni akarnak; vendégnek `user: null`.
+     */
+    public function me(Request $request): JsonResponse
     {
         $me = $request->user();
+        if (! $me) {
+            return response()->json(['user' => null]);
+        }
 
-        return view('dashboard', [
+        return response()->json([
+            'user' => ['name' => $me->name ?: $me->email, 'email' => $me->email],
+            'csrf' => csrf_token(),
             'owners' => $me->visibleOwners()->map(fn (User $owner) => [
                 'id' => $owner->id,
                 'name' => $owner->name ?: $owner->email,
                 'email' => $owner->email,
                 'is_me' => $owner->is($me),
             ])->values()->all(),
+            'config' => UserConfig::toArray($me),
         ]);
     }
 
@@ -54,6 +61,6 @@ class DashboardController extends Controller
             // Üres listánál megnézzük, él-e még a mappa (a törölt mappa gyerekei is eltűnnek a listából).
             'folder_missing' => ! $events && ! $drive->folderAlive($token, $owner->drive_folder_id),
             'is_owner' => $isOwner,
-        ])->header('Cache-Control', 'no-store');
+        ]);
     }
 }

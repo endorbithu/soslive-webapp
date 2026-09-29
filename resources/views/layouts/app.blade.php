@@ -1,58 +1,30 @@
+{{--
+    Statikus layout: reverse proxy (Varnish, Cloudflare) cache-eli, ezért mindenkinek ugyanaz a HTML kell legyen.
+    TILOS ide userfüggő adatot tenni (auth(), session(), csrf_token(), $errors) – ezeket a JS tölti be az /app/me-ből.
+    Az URL-ek relatívak, hogy a cache-elt HTML ne függjön a kérés hostjától / sémájától.
+--}}
 <!doctype html>
 <html lang="hu">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     @stack('head')
     <title>@yield('title', 'SOSlive')</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="/css/app.css?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body>
 <header class="top">
-    <a class="brand" href="{{ route('home') }}">SOSlive</a>
-    <nav>
-        @if (request()->is('admin', 'admin/*'))
-            @auth('admin')
-                <a href="{{ route('admin.users.index') }}">Userek</a>
-                <form method="post" action="{{ route('admin.logout') }}" class="inline">
-                    @csrf
-                    <button type="submit" class="link">Kilépés</button>
-                </form>
-            @endauth
-        @else
-            @auth
-                <a href="{{ route('dashboard') }}">Események</a>
-                <a href="{{ route('settings') }}">Beállítások</a>
-                <span class="muted">{{ auth()->user()->email }}</span>
-                <form method="post" action="{{ route('logout') }}" class="inline">
-                    @csrf
-                    <button type="submit" class="link">Kilépés</button>
-                </form>
-            @else
-                <a href="{{ route('auth.google') }}">Belépés</a>
-            @endauth
-        @endif
+    <a class="brand" href="{{ route('home', [], false) }}">SOSlive</a>
+    <nav id="nav">
+        <a href="{{ route('auth.google', [], false) }}">Belépés</a>
     </nav>
 </header>
 <main>
-    @if (session('status'))
-        <p class="flash ok">{{ session('status') }}</p>
-    @endif
-    @if (session('error'))
-        <p class="flash err">{{ session('error') }}</p>
-    @endif
-    @if ($errors->any())
-        <ul class="flash err">
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    @endif
+    <p id="flash" class="flash" hidden></p>
 
     @yield('content')
 </main>
-@stack('scripts')
+@include('partials.config')
 </body>
 </html>
