@@ -59,6 +59,7 @@ done
 cat <<EOF
 
 Kész: ${APP_URL}
+- Teszt belépés Google nélkül: ${APP_URL}/app/auth/dev  (csak ha APP_ENV != production)
 - Admin felhasználó:  ./vendor/bin/sail artisan admin:create te@example.com
 - Google belépéshez a .env-ben: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_API_KEY
   (Google Cloud Console: redirect URI ${APP_URL}/app/auth/google/callback, JavaScript origin ${APP_URL})

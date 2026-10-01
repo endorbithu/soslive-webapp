@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin;
+use App\Http\Controllers\Auth\DevLoginController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
@@ -13,6 +14,10 @@ Route::prefix('app')->middleware('cache.headers:no_store;private')->group(functi
     Route::get('/auth/google', [GoogleController::class, 'redirect'])->name('auth.google');
     Route::get('/auth/google/callback', [GoogleController::class, 'callback'])->name('auth.google.callback');
     Route::post('/logout', [GoogleController::class, 'logout'])->name('logout');
+
+    // Teszt belépés Google nélkül – production alatt 404 (DevLoginController).
+    Route::get('/auth/dev', [DevLoginController::class, 'create'])->name('auth.dev');
+    Route::post('/auth/dev', [DevLoginController::class, 'store'])->middleware('throttle:10,1');
 
     // A statikus oldalak ebből tudják meg, ki van belépve (vendégnek user: null). Google tokent a backend nem kezel:
     // a Drive-hoz a böngésző maga kér hozzáférést (Google Identity Services).
