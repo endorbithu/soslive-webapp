@@ -18,6 +18,9 @@
     <a class="brand" href="{{ route('home', [], false) }}">SOSlive</a>
     <nav id="nav">
         <a href="{{ route('auth.google', [], false) }}">Belépés</a>
+        @unless (app()->isProduction())
+            <a href="{{ route('auth.dev', [], false) }}">Teszt belépés</a>
+        @endunless
     </nav>
 </header>
 <main>

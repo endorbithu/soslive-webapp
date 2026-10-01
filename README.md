@@ -93,6 +93,10 @@ Utána:
 ./vendor/bin/sail test
 ```
 
+**Teszt belépés Google nélkül:** ha az `APP_ENV` nem `production`, a `/app/auth/dev` oldalon (link a kezdőlapon és a
+menüben) bármilyen email címmel be lehet lépni. A user létrejön, ha még nincs. Production alatt az oldal 404-et ad.
+A Drive-os részekhez (eseménylista, beállítások) a böngésző ettől még Google hozzáférést kér.
+
 Google belépéshez a `.env`-ben meg kell adni a `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` és `GOOGLE_API_KEY` értékét. A Google
 Cloud Console-ban a redirect URI `http://localhost/app/auth/google/callback`, a JavaScript origin `http://localhost`.
 
