@@ -30,7 +30,7 @@
     async function gapi(url, params) {
         const u = new URL(url);
         Object.entries(params || {}).forEach(([k, v]) => u.searchParams.set(k, v));
-        u.searchParams.set('key', cfg.apiKey);
+        if (u.origin === 'https://www.googleapis.com') u.searchParams.set('key', cfg.apiKey); // a demó végpont nem kapja
 
         const res = await fetch(u, { cache: 'no-store' });
         if (!res.ok) {
@@ -477,9 +477,14 @@
         const stream = document.getElementById('stream');
         const position = document.getElementById('position');
         const timeline = document.getElementById('timeline');
-        const fileUrl = DRIVE + '/' + encodeURIComponent(id);
+        // Nem production környezetben a `demo-` kezdetű azonosítókat a backend ál-Drive végpontja szolgálja ki
+        // (beépített demó adatok, Google nélkül); minden mást a valódi Drive API.
+        const demo = Boolean(cfg.demoUrl) && id.startsWith('demo-');
+        const fileUrl = demo
+            ? new URL(cfg.demoUrl + '/' + encodeURIComponent(id), location.origin).href
+            : DRIVE + '/' + encodeURIComponent(id);
 
-        if (!cfg.apiKey) {
+        if (!demo && !cfg.apiKey) {
             status.textContent = 'Az esemény nem érhető el (hiányzó Google API key).';
             return;
         }

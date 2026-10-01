@@ -35,6 +35,7 @@ Az oldalak két zónára oszlanak (részletek: [docs/CACHING.md](docs/CACHING.md
 | `/e/{fileId}` | statikus | **bárki**, aki ismeri a linket | Drive API + API key, csak olvasás (keresők nem indexelik); vendégnél a backendet sem hívja |
 | `/app/me` | dinamikus | bárki | JSON: belépett user (vendégnek `null`) és CSRF token |
 | `/app/auth/google`, `/app/logout` | dinamikus | | belépés, kilépés |
+| `/app/auth/dev`, `/app/dev/drive/files/{id}` | dinamikus | csak nem production | teszt belépés, demó események |
 | `/app/admin` | dinamikus | admin | userek listája, törlés |
 
 A statikus oldalak cookie és session nélkül, mindenkinek ugyanazzal a HTML-lel mennek, reverse proxyban (Varnish,
@@ -96,6 +97,19 @@ Utána:
 **Teszt belépés Google nélkül:** ha az `APP_ENV` nem `production`, a `/app/auth/dev` oldalon (link a kezdőlapon és a
 menüben) bármilyen email címmel be lehet lépni. A user létrejön, ha még nincs. Production alatt az oldal 404-et ad.
 A Drive-os részekhez (eseménylista, beállítások) a böngésző ettől még Google hozzáférést kér.
+
+**Demó események (végoldal teszt Google nélkül):** ha az `APP_ENV` nem `production`, a kezdőlapon és a dashboardon
+megjelenik egy „Demó események” lista. Ezek a `/e/demo-…` linkek a valódi Drive helyett a backend ál-Drive végpontjából
+(`/app/dev/drive/files/{id}`, adatok: `app/Support/DemoEvents.php`) olvasnak, ugyanazzal a formátummal:
+
+| Link | Mit tesztel |
+|---|---|
+| `/e/demo-live-event-0000001` | élő esemény: stream, üzenetek, kép; 30 mp-enként új pozíció (a polling frissít) |
+| `/e/demo-ended-event-000001` | lezárt esemény, benne hibás bejegyzések (`javascript:` kép, ismeretlen típus, HTML a szövegben) |
+| `/e/demo-empty-event-000001` | most indult esemény: nincs stream, nincs bejegyzés |
+| `/e/demo-deleted-event-0001` | törölt esemény („nem érhető el”) |
+
+Production alatt a végpont 404-et ad, és a `demo-` kezdetű linkek is a Google Drive API-hoz fordulnak.
 
 Google belépéshez a `.env`-ben meg kell adni a `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` és `GOOGLE_API_KEY` értékét. A Google
 Cloud Console-ban a redirect URI `http://localhost/app/auth/google/callback`, a JavaScript origin `http://localhost`.

@@ -13,6 +13,9 @@
         'loginUrl' => route('auth.google', [], false),
         'logoutUrl' => route('logout', [], false),
     ];
+    if (! app()->isProduction()) {
+        $jsConfig['demoUrl'] = '/app/dev/drive/files'; // demó események Google nélkül (DemoDriveController)
+    }
 @endphp
 <script type="application/json" id="soslive-config">@json($jsConfig)</script>
 <script src="/js/soslive.js?v={{ filemtime(public_path('js/soslive.js')) }}" defer></script>

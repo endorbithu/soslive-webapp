@@ -11,4 +11,6 @@
         <button type="button">Google Drive hozzáférés engedélyezése</button>
     </p>
     <ul id="events" class="events"></ul>
+
+    @include('partials.demo-events')
 @endsection
