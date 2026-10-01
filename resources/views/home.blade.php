@@ -10,4 +10,6 @@
     @unless (app()->isProduction())
         <p class="muted"><a href="{{ route('auth.dev', [], false) }}">Teszt belépés Google nélkül</a> ({{ app()->environment() }} környezet)</p>
     @endunless
+
+    @include('partials.demo-events')
 @endsection

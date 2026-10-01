@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin;
 use App\Http\Controllers\Auth\DevLoginController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DemoDriveController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,6 +19,9 @@ Route::prefix('app')->middleware('cache.headers:no_store;private')->group(functi
     // Teszt belépés Google nélkül – production alatt 404 (DevLoginController).
     Route::get('/auth/dev', [DevLoginController::class, 'create'])->name('auth.dev');
     Route::post('/auth/dev', [DevLoginController::class, 'store'])->middleware('throttle:10,1');
+
+    // Ál-Drive a demó eseményekhez (App\Support\DemoEvents) – production alatt 404 (DemoDriveController).
+    Route::get('/dev/drive/files/{fileId}', [DemoDriveController::class, 'show'])->name('dev.drive');
 
     // A statikus oldalak ebből tudják meg, ki van belépve (vendégnek user: null). Google tokent a backend nem kezel:
     // a Drive-hoz a böngésző maga kér hozzáférést (Google Identity Services).
