@@ -4,10 +4,12 @@
 @section('page', 'dashboard')
 
 @section('content')
-    <h1>Eseményeim</h1>
-    {{-- A listát a böngésző tölti be a saját Google Drive-odból (a SOSlive backend nem látja). --}}
-    <p id="page-status" class="muted">Betöltés…</p>
-    <p id="drive-access" hidden>
+    <div class="page-head">
+        <h1>Eseményeim</h1>
+        <p class="muted">A lista a saját Google Drive-odból töltődik be, a SOSlive szerver nem látja.</p>
+    </div>
+    <p id="page-status" class="status">Betöltés…</p>
+    <p id="drive-access" class="status" hidden>
         <button type="button">Google Drive hozzáférés engedélyezése</button>
     </p>
     <ul id="events" class="events"></ul>

@@ -65,7 +65,15 @@ php artisan migrate --force
 php artisan admin:create admin@example.com --name="Admin"
 ```
 
-A webszerver document rootja a `public/` mappa. Nincs frontend build lépés (vanilla JS: `public/js/soslive.js`).
+A webszerver document rootja a `public/` mappa. Nincs frontend build lépés:
+- CSS: `public/css/app.css` (színek tokenekben, automatikus sötét mód);
+- JS: natív ES modulok a `public/js/` alatt:
+  - `app.js`: belépési pont;
+  - `lib/`: config, DOM, HTTP, Drive, közös UI;
+  - `pages/`: oldalanként egy-egy modul.
+
+A modulok egymást `soslive/…` névvel importálják. Az import mapet a `resources/views/partials/config.blade.php`
+generálja, és minden fájlhoz `?v=filemtime` verziót tesz, így deploy után a cache sem ad vissza régi modult.
 A `SESSION_PATH=/app` beállítás kötelező (ettől cache-elhetők a statikus oldalak). Reverse proxy (Varnish,
 Cloudflare) beállítása: [docs/CACHING.md](docs/CACHING.md).
 
