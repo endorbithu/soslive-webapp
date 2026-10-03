@@ -26,6 +26,23 @@ class EventPageTest extends TestCase
             ->assertSee('<meta name="robots" content="noindex, nofollow">', false);
     }
 
+    public function test_event_page_has_route_map(): void
+    {
+        config(['soslive.map.tile_url' => 'https://tiles.example.com/{z}/{x}/{y}.png']);
+
+        $this->get('/e/'.self::FILE_ID)
+            ->assertOk()
+            ->assertSee('<div id="map" class="map" hidden></div>', false)
+            ->assertSee('"mapTileUrl":"https:\\/\\/tiles.example.com\\/{z}\\/{x}\\/{y}.png"', false)
+            ->assertSee('"mapAttribution":', false);
+
+        // A Leaflet saját példány (nincs külső CDN); az útvonala a lib/config.js-ben van.
+        foreach (['leaflet.js', 'leaflet.css', 'LICENSE'] as $file) {
+            $this->assertFileExists(public_path('vendor/leaflet/1.9.4/'.$file));
+        }
+        $this->assertStringContainsString("'/vendor/leaflet/1.9.4/leaflet'", file_get_contents(public_path('js/lib/config.js')));
+    }
+
     public function test_invalid_id_is_404(): void
     {
         $this->get('/e/short')->assertNotFound();

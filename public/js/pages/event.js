@@ -3,6 +3,7 @@
 import { cfg, DRIVE, HLS_JS } from 'soslive/lib/config.js';
 import { coord, displayName, el, formatTime, loadScript, mapLink, safeUrl } from 'soslive/lib/dom.js';
 import { gapi } from 'soslive/lib/http.js';
+import { createRouteMap } from 'soslive/lib/map.js';
 
 // Ennyi ideje frissült fájl számít „élőnek” (a mobil app 30 mp-enként küld pozíciót).
 const LIVE_WINDOW_MS = 90 * 1000;
@@ -85,6 +86,7 @@ export async function initEvent() {
     const badge = document.getElementById('event-badge');
     const stream = document.getElementById('stream');
     const position = document.getElementById('position');
+    const mapBox = document.getElementById('map');
     const timeline = document.getElementById('timeline');
     // Nem production környezetben a `demo-` kezdetű azonosítókat a backend ál-Drive végpontja szolgálja ki
     // (beépített demó adatok, Google nélkül); minden mást a valódi Drive API.
@@ -104,6 +106,21 @@ export async function initEvent() {
 
     let lastModified = null;
     let lastStream;
+    let routeMap = null; // Promise<{update}|null> – az első pozíciónál jön létre
+
+    const updateMap = (coords) => {
+        if (!coords.length) {
+            mapBox.hidden = true;
+            return;
+        }
+        mapBox.hidden = false;
+        routeMap = routeMap || createRouteMap(mapBox).catch((e) => {
+            console.warn('A térkép nem tölthető be', e);
+            mapBox.hidden = true;
+            return null;
+        });
+        routeMap.then((m) => m && m.update(coords));
+    };
 
     async function refresh(force) {
         let meta;
@@ -133,9 +150,9 @@ export async function initEvent() {
         }
 
         const coords = entries.filter((e) => e.type === 'pos').map((e) => coord(e.lat, e.lng)).filter(Boolean);
-        position.replaceChildren(coords.length
-            ? mapLink(coords[coords.length - 1])
-            : el('span', { class: 'muted', text: 'Még nincs pozíció.' }));
+        position.replaceChildren(...(coords.length
+            ? ['Utolsó pozíció: ', mapLink(coords[coords.length - 1])]
+            : [el('span', { class: 'muted', text: 'Még nincs pozíció.' })]));
 
         const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 50;
         const items = entries.map(renderEntry).filter(Boolean);
@@ -144,6 +161,7 @@ export async function initEvent() {
 
         status.hidden = true;
         box.hidden = false;
+        updateMap(coords); // a box már látható, így a térkép a valódi méretével jön létre
         if (atBottom && !force) window.scrollTo(0, document.body.scrollHeight);
     }
 

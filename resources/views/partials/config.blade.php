@@ -17,6 +17,8 @@
         'meUrl' => route('me', [], false),
         'loginUrl' => route('auth.google', [], false),
         'logoutUrl' => route('logout', [], false),
+        'mapTileUrl' => config('soslive.map.tile_url'),
+        'mapAttribution' => config('soslive.map.attribution'),
     ];
     if (! app()->isProduction()) {
         $jsConfig['demoUrl'] = '/app/dev/drive/files'; // demó események Google nélkül (DemoDriveController)

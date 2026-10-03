@@ -41,6 +41,19 @@ Az oldalak két zónára oszlanak (részletek: [docs/CACHING.md](docs/CACHING.md
 A statikus oldalak cookie és session nélkül, mindenkinek ugyanazzal a HTML-lel mennek, reverse proxyban (Varnish,
 Cloudflare) cache-elhetők; a dinamikus zóna (`/app`) session-nel, sosem cache-elődik.
 
+## Térkép (eseményoldal)
+
+Az eseményoldalon egy kis térkép mutatja az útvonalat: egy vonal köti össze a pozíciókat, és külön jelölő mutatja a
+kezdőpontot és az utolsó pozíciót.
+- A térkép élő eseménynél követi a mozgást. Ha a néző kézzel elmozdítja, a térkép nem ugrik vissza; a „Követés” gomb
+  állítja vissza.
+- A térkép **Leaflet 1.9.4**. A webapp saját maga szolgálja ki a `public/vendor/leaflet/1.9.4/` alól (BSD-2 licenc, külső
+  CDN nincs), és csak az eseményoldal tölti be, akkor is csak ha van pozíció.
+- A csempék alapból az **openstreetmap.org**-ról jönnek. Ez csak mérsékelt forgalomra való
+  ([tile usage policy](https://operations.osmfoundation.org/policies/tiles/)). Nagyobb forgalomnál szolgáltatói vagy saját
+  csempe szerver kell (pl. MapTiler, Stadia, Thunderforest). Beállítás a `.env`-ben: `SOSLIVE_MAP_TILE_URL` (URL sablon,
+  `{z}/{x}/{y}`) és `SOSLIVE_MAP_ATTRIBUTION` (a kötelező forrásmegjelölés).
+
 ## Google Cloud beállítás
 
 1. Egy Google Cloud projekt a web **és** a mobil appok OAuth kliensei számára (a `drive.file` hozzáférés projekt-szintű:
