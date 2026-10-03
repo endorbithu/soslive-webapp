@@ -21,7 +21,8 @@
 
         <div class="event-side">
             <section class="card">
-                <h2>Utolsó pozíció</h2>
+                <h2>Útvonal</h2>
+                <div id="map" class="map" hidden></div>
                 <p id="position" class="position"></p>
             </section>
 

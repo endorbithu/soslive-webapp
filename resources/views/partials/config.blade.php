@@ -9,6 +9,7 @@
         'page' => trim($__env->yieldContent('page')),
         'apiKey' => config('services.google.api_key'),
         'googleClientId' => config('services.google.client_id'),
+        'googleAppId' => config('services.google.app_id'),
         'driveScope' => 'https://www.googleapis.com/auth/drive.file',
         'folderName' => config('soslive.folder_name'),
         'defaultMaxEvents' => config('soslive.default_max_events'),
@@ -17,6 +18,8 @@
         'meUrl' => route('me', [], false),
         'loginUrl' => route('auth.google', [], false),
         'logoutUrl' => route('logout', [], false),
+        'mapTileUrl' => config('soslive.map.tile_url'),
+        'mapAttribution' => config('soslive.map.attribution'),
     ];
     if (! app()->isProduction()) {
         $jsConfig['demoUrl'] = '/app/dev/drive/files'; // demó események Google nélkül (DemoDriveController)

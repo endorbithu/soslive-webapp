@@ -19,6 +19,9 @@ class DemoEvents
     /** Lezárt esemény: stream, útvonal, üzenetek, képek. */
     public const ENDED = 'demo-ended-event-000001';
 
+    /** Csak a stream szolgáltató oldala van (pl. YouTube), közvetlenül lejátszható stream nincs. */
+    public const PROVIDER = 'demo-provider-event-0001';
+
     /** Most indult esemény: még nincs stream és bejegyzés. */
     public const EMPTY = 'demo-empty-event-000001';
 
@@ -37,6 +40,7 @@ class DemoEvents
         return [
             ['id' => self::LIVE, 'label' => 'Élő esemény (30 mp-enként frissül)'],
             ['id' => self::ENDED, 'label' => 'Lezárt esemény'],
+            ['id' => self::PROVIDER, 'label' => 'Stream csak a szolgáltató oldalán (stream_page)'],
             ['id' => self::EMPTY, 'label' => 'Most indult esemény (még üres)'],
             ['id' => self::DELETED, 'label' => 'Törölt esemény'],
         ];
@@ -52,6 +56,17 @@ class DemoEvents
         return match ($id) {
             self::LIVE => self::live($now),
             self::ENDED => self::ended(),
+            self::PROVIDER => self::event('2026-09-30 08:20:00', '2026-09-30T08:21:00Z', [
+                'v' => 1,
+                'stream' => '',
+                'stream_page' => 'https://www.youtube.com/',
+                'entries' => [
+                    self::pos(Carbon::parse('2026-09-30T08:20:00Z'), 47.4925, 19.0513),
+                    self::pos(Carbon::parse('2026-09-30T08:20:30Z'), 47.4931, 19.0527),
+                    self::msg(Carbon::parse('2026-09-30T08:20:40Z'), 'Anna', 'A videót a YouTube-on nézhetitek.'),
+                    self::pos(Carbon::parse('2026-09-30T08:21:00Z'), 47.4940, 19.0536),
+                ],
+            ]),
             self::EMPTY => self::event('2026-09-29 14:03:22', '2026-09-29T14:03:22Z', ['v' => 1, 'stream' => '', 'entries' => []]),
             default => null, // a törölt és az ismeretlen esemény is 404, mint a Drive-on
         };
@@ -105,6 +120,9 @@ class DemoEvents
         return self::event('2026-09-28 19:12:05', '2026-09-28T19:14:15Z', [
             'v' => 1,
             'stream' => self::STREAM,
+            'stream_page' => 'https://www.youtube.com/',
+            'recording' => 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+            'unknown_field' => 'a web figyelmen kívül hagyja',
             'entries' => $entries,
         ]);
     }

@@ -40,6 +40,8 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI', '/app/auth/google/callback'),
         'api_key' => env('GOOGLE_API_KEY'),
+        // A Google Cloud projekt száma (Project number) – a Google Pickerhez („Velem megosztott események”).
+        'app_id' => env('GOOGLE_APP_ID'),
     ],
 
 ];

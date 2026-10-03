@@ -45,6 +45,22 @@ export function mapLink(c) {
 }
 
 const scripts = {};
+const styles = {};
+
+/** Külső stíluslap betöltése egyszer (pl. Leaflet). */
+export function loadStyle(href) {
+    styles[href] = styles[href] || new Promise((resolve, reject) => {
+        const link = el('link', { rel: 'stylesheet', href });
+        link.onload = resolve;
+        link.onerror = () => {
+            delete styles[href];
+            link.remove();
+            reject(new Error('Nem tölthető be: ' + href));
+        };
+        document.head.append(link);
+    });
+    return styles[href];
+}
 
 /** Külső (nem modul) script betöltése egyszer, pl. hls.js, Google Identity Services. */
 export function loadScript(src) {

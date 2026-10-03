@@ -28,6 +28,13 @@
         </section>
 
         <section class="card">
+            <h2>Kik látják az eseményeidet</h2>
+            <p class="muted">Ők a Drive-od events mappáját látják (az eseményeidet és a képeket), a fenti beállításokat nem.
+                Csak a mobil appban módosítható.</p>
+            <div id="cfg-viewers"></div>
+        </section>
+
+        <section class="card">
             <h2>Google Drive</h2>
             <p>Eseményeid a <strong>{{ config('soslive.folder_name') }}</strong> mappában vannak.</p>
             <p><a id="cfg-folder-link" class="button secondary" href="#" target="_blank" rel="noopener" hidden>Megnyitás a Drive-ban</a></p>
