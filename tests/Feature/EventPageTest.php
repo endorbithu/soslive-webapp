@@ -43,6 +43,30 @@ class EventPageTest extends TestCase
         $this->assertStringContainsString("'/vendor/leaflet/1.9.4/leaflet'", file_get_contents(public_path('js/lib/config.js')));
     }
 
+    public function test_picker_app_id_in_config(): void
+    {
+        config(['services.google.app_id' => '123456789012']);
+
+        $this->get('/dashboard')->assertOk()->assertSee('"googleAppId":"123456789012"', false);
+    }
+
+    public function test_dashboard_has_shared_events_section(): void
+    {
+        $this->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Velem megosztott események')
+            ->assertSee('id="shared-add"', false)
+            ->assertSee('id="shared-list"', false);
+    }
+
+    public function test_settings_shows_viewers_card(): void
+    {
+        $this->get('/settings')
+            ->assertOk()
+            ->assertSee('Kik látják az eseményeidet')
+            ->assertSee('id="cfg-viewers"', false);
+    }
+
     public function test_invalid_id_is_404(): void
     {
         $this->get('/e/short')->assertNotFound();

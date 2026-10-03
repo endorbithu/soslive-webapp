@@ -13,14 +13,19 @@ egyáltalán nem hívja – a user a mobil használata után bármikor beléphet
 
 ## Működés
 
-- **Mindenki csak a saját eseményeit látja** a weben. Az érintettek (értesítendők) emailt / SMS-t kapnak a mobil apptól
-  az esemény linkjével; a link (`/e/{fileId}`) belépés nélkül, bárkinek megnyílik.
+- **Saját és velem megosztott események.**
+  - A weben mindenki a saját eseményeit látja (a Drive `SOSlive/events/` mappájából).
+  - Látja azokét is, akik a mobil appban **megosztották vele** az `events` mappájukat. Ehhez egyszer ki kell választania
+    a mappát a Google Pickerben, a dashboardon („Velem megosztott események”).
+  - Az érintettek (értesítendők) emailt vagy SMS-t kapnak a mobil apptól az esemény linkjével. A link (`/e/{fileId}`)
+    belépés nélkül, bárkinek megnyílik.
 - A **saját eseménylistát és a configot a böngésző olvassa** a Drive-ból, a user saját Google tokenjével
   (Google Identity Services, `drive.file`). A belépéskor megadott Drive engedély miatt ez többnyire magától megy; ha a
   böngésző letiltja a Google ablakot, egy „Google Drive hozzáférés engedélyezése” gomb jelenik meg. A token a fül
   `sessionStorage`-ában a lejáratáig (max. 1 óra) megmarad, kilépéskor törlődik.
-- **Beállítások**: a `config.json` (értesítendő emailek, telefonszámok, `max_events`) csak olvasható; módosítani csak a
-  mobil appban lehet.
+- **Beállítások**: csak olvasható, módosítani csak a mobil appban lehet. Tartalma:
+  - a `config.json` (értesítendő emailek, telefonszámok, `max_events`);
+  - a „Kik látják az eseményeidet” lista (az `events` mappa megosztásai).
 - **Chat**: a webről nem lehet írni; az eseményoldal szerint SMS-ben lehet válaszolni arra a számra, ahonnan az
   értesítés jött (a válasz a tulaj telefonján natív SMS-ként jelenik meg).
 - `max_events`: a mobil app a legrégebbi eseményeket a Drive kukájába teszi (30 napig visszaállíthatók).
@@ -30,7 +35,7 @@ Az oldalak két zónára oszlanak (részletek: [docs/CACHING.md](docs/CACHING.md
 | Útvonal | Zóna | Ki | Mi |
 |---|---|---|---|
 | `/` | statikus | bárki | kezdőlap, Google belépés |
-| `/dashboard` | statikus | belépett user | saját események (a böngésző olvassa a Drive-ból), max. 100 / `max_events` |
+| `/dashboard` | statikus | belépett user | saját események (a böngésző olvassa a Drive-ból), max. 100 / `max_events`; velem megosztott események |
 | `/settings` | statikus | belépett user | a `config.json` csak olvashatóan („csak a mobil appban módosítható”), Drive mappa link |
 | `/e/{fileId}` | statikus | **bárki**, aki ismeri a linket | Drive API + API key, csak olvasás (keresők nem indexelik); vendégnél a backendet sem hívja |
 | `/app/me` | dinamikus | bárki | JSON: belépett user (vendégnek `null`) és CSRF token |
@@ -58,7 +63,7 @@ kezdőpontot és az utolsó pozíciót.
 
 1. Egy Google Cloud projekt a web **és** a mobil appok OAuth kliensei számára (a `drive.file` hozzáférés projekt-szintű:
    a web csak így látja a mobil által létrehozott fájlokat).
-2. APIs: **Google Drive API** engedélyezése (más nem kell).
+2. APIs: **Google Drive API** és **Google Picker API** engedélyezése.
 3. OAuth consent screen: scope-ok `openid`, `email`, `profile`, `https://www.googleapis.com/auth/drive.file`
    (a `drive.file` nem „restricted” scope, nem kell hozzá CASA audit). Élesben „In production” állapot.
 4. OAuth client (Web application):
@@ -66,8 +71,12 @@ kezdőpontot és az utolsó pozíciót.
    - *Authorized JavaScript origins*: `https://<domain>` (a böngészőben kért Drive tokenhez).
    A mobil appok saját (Android / iOS) OAuth klienst használnak ugyanebben a projektben.
 5. API key a böngészőnek (kötelező, ezzel olvassa a nyilvános eseményeket): korlátozás *HTTP referrer* = a webapp
-   domainje, *API restrictions* = Drive API.
-6. `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_API_KEY`.
+   domainje, *API restrictions* = Drive API és Google Picker API.
+6. `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_API_KEY`, és `GOOGLE_APP_ID`. Ez
+   utóbbi a projekt száma (*Project number*, a Cloud Console kezdőlapján). A Picker kell hozzá; enélkül a „Megosztott
+   mappa hozzáadása” gomb nem jelenik meg.
+   A megosztás működését élesítés előtt két valódi fiókkal ellenőrizni kell, lásd
+   [docs/EVENT_FORMAT.md](docs/EVENT_FORMAT.md#ellenőrzés-valódi-fiókokkal-megosztás).
 
 ## Telepítés
 

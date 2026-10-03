@@ -9,6 +9,7 @@
         'page' => trim($__env->yieldContent('page')),
         'apiKey' => config('services.google.api_key'),
         'googleClientId' => config('services.google.client_id'),
+        'googleAppId' => config('services.google.app_id'),
         'driveScope' => 'https://www.googleapis.com/auth/drive.file',
         'folderName' => config('soslive.folder_name'),
         'defaultMaxEvents' => config('soslive.default_max_events'),

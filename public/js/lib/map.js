@@ -31,7 +31,7 @@ export async function createRouteMap(container) {
         if (!points.length) return;
         programmatic = true;
         if (points.length === 1) map.setView(points[0], 16, { animate: false });
-        else map.fitBounds(route.getBounds(), { padding: [24, 24], maxZoom: 17, animate: false });
+        else map.fitBounds(route.getBounds(), { padding: [44, 44], maxZoom: 17, animate: false }); // a vezérlők ne takarják
         programmatic = false;
     };
 

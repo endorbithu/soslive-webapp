@@ -8,39 +8,52 @@ import { createRouteMap } from 'soslive/lib/map.js';
 // Ennyi ideje frissült fájl számít „élőnek” (a mobil app 30 mp-enként küld pozíciót).
 const LIVE_WINDOW_MS = 90 * 1000;
 
-async function renderStream(container, url) {
+/**
+ * Videó és linkek: `stream` = közvetlenül lejátszható URL (HLS / MP4, üres is lehet), `page` = a stream szolgáltató
+ * nézői oldala (pl. YouTube / Twitch – nem biztos, hogy beágyazható, ezért csak link), `recording` = felvétel link.
+ */
+async function renderStream(container, media) {
     container.replaceChildren();
-    const safe = safeUrl(url);
+    const safe = safeUrl(media.stream);
+    const page = safeUrl(media.page);
+    const recording = safeUrl(media.recording);
+
     if (!safe) {
-        container.append(el('p', { class: 'stream-empty', text: url ? 'Stream: ' + url : 'Még nincs videó stream.' }));
-        return;
+        container.append(el('p', {
+            class: 'stream-empty',
+            text: page ? 'Az élő adás a stream szolgáltató oldalán nézhető.' : 'Még nincs videó stream.',
+        }));
+    } else {
+        const path = new URL(safe).pathname.toLowerCase();
+        if (path.endsWith('.m3u8')) {
+            const video = el('video', { controls: '', autoplay: '', playsinline: '' });
+            video.muted = true; // autoplay csak némítva engedélyezett
+            container.append(video);
+            if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = safe;
+            } else {
+                try {
+                    await loadScript(HLS_JS);
+                    if (window.Hls && window.Hls.isSupported()) {
+                        const hls = new window.Hls();
+                        hls.loadSource(safe);
+                        hls.attachMedia(video);
+                    }
+                } catch (e) {
+                    console.warn('hls.js betöltése sikertelen', e);
+                }
+            }
+        } else if (/\.(mp4|webm|ogg|mov)$/.test(path)) {
+            container.append(el('video', { controls: '', src: safe, playsinline: '' }));
+        }
     }
 
-    const path = new URL(safe).pathname.toLowerCase();
-    if (path.endsWith('.m3u8')) {
-        const video = el('video', { controls: '', autoplay: '', playsinline: '' });
-        video.muted = true; // autoplay csak némítva engedélyezett
-        container.append(video);
-        if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = safe;
-        } else {
-            try {
-                await loadScript(HLS_JS);
-                if (window.Hls && window.Hls.isSupported()) {
-                    const hls = new window.Hls();
-                    hls.loadSource(safe);
-                    hls.attachMedia(video);
-                }
-            } catch (e) {
-                console.warn('hls.js betöltése sikertelen', e);
-            }
-        }
-    } else if (/\.(mp4|webm|ogg|mov)$/.test(path)) {
-        container.append(el('video', { controls: '', src: safe, playsinline: '' }));
-    }
-    container.append(el('p', { class: 'stream-link' }, [
-        el('a', { href: safe, target: '_blank', rel: 'noopener', text: 'Stream megnyitása külön' }),
-    ]));
+    const links = [
+        page && el('a', { href: page, target: '_blank', rel: 'noopener', text: 'Élő adás megnyitása a szolgáltatónál' }),
+        safe && el('a', { href: safe, target: '_blank', rel: 'noopener', text: 'Stream megnyitása külön' }),
+        recording && el('a', { href: recording, target: '_blank', rel: 'noopener', text: 'Felvétel megtekintése / letöltése' }),
+    ].filter(Boolean);
+    if (links.length) container.append(el('p', { class: 'stream-link' }, links));
 }
 
 /** Egy bejegyzés: {t, type: 'pos'|'msg'|'img', ...}. Ismeretlen vagy hibás bejegyzést kihagyunk. */
@@ -143,10 +156,12 @@ export async function initEvent() {
         title.textContent = name;
         document.title = name + ' – SOSlive';
 
-        const streamUrl = (data && typeof data.stream === 'string') ? data.stream : '';
-        if (streamUrl !== lastStream) {
-            lastStream = streamUrl;
-            await renderStream(stream, streamUrl);
+        const text = (v) => (typeof v === 'string' ? v : '');
+        const media = { stream: text(data && data.stream), page: text(data && data.stream_page), recording: text(data && data.recording) };
+        const mediaKey = JSON.stringify(media);
+        if (mediaKey !== lastStream) {
+            lastStream = mediaKey;
+            await renderStream(stream, media);
         }
 
         const coords = entries.filter((e) => e.type === 'pos').map((e) => coord(e.lat, e.lng)).filter(Boolean);

@@ -14,5 +14,17 @@
     </p>
     <ul id="events" class="events"></ul>
 
+    {{-- Mások események mappái, amelyeket megosztottak veled (a mobil appban), és egyszer kiválasztottál a Google Pickerben. --}}
+    <section id="shared" class="shared" hidden>
+        <div class="section-head">
+            <h2>Velem megosztott események</h2>
+            <button id="shared-add" type="button" class="secondary" hidden>Megosztott mappa hozzáadása</button>
+        </div>
+        <p class="muted">Ha valaki megosztotta veled a SOSlive eseményeit, a Google értesítő emailjében szereplő
+            <strong>events</strong> mappát egyszer itt kell kiválasztanod. Utána az új eseményei is itt jelennek meg.</p>
+        <p id="shared-status" class="status" hidden></p>
+        <div id="shared-list"></div>
+    </section>
+
     @include('partials.demo-events')
 @endsection

@@ -1,7 +1,7 @@
 // Beállítások: a mobil app által írt config.json, csak olvasható.
 import { cfg } from 'soslive/lib/config.js';
 import { el } from 'soslive/lib/dom.js';
-import { findFolder, readConfig, withDrive } from 'soslive/lib/drive.js';
+import { findEventsFolder, findFolder, listViewers, readConfig, withDrive } from 'soslive/lib/drive.js';
 import { loginPrompt } from 'soslive/lib/ui.js';
 
 export function initSettings(me) {
@@ -15,9 +15,26 @@ export function initSettings(me) {
         else dd.append(el('ul', { class: 'plain' }, items.map((item) => el('li', { text: item }))));
     };
 
+    const fillViewers = (eventsId, viewers) => {
+        const box = document.getElementById('cfg-viewers');
+        if (!eventsId) {
+            box.replaceChildren(el('p', { class: 'muted', text: 'A mobil app frissítése után jelenik meg.' }));
+        } else if (!viewers.length) {
+            box.replaceChildren(el('p', { class: 'muted', text: 'Senki – a mobil appban adhatod meg.' }));
+        } else {
+            box.replaceChildren(el('ul', { class: 'plain viewers' }, viewers.map((v) => el('li', {}, [
+                el('span', { text: v.name || v.email }),
+                v.name && v.email ? el('span', { class: 'muted', text: ' ' + v.email }) : null,
+            ]))));
+        }
+    };
+
     withDrive(me, async () => {
         const folderId = await findFolder(me);
-        const config = folderId ? await readConfig(me, folderId) : null;
+        const [config, eventsId] = folderId
+            ? await Promise.all([readConfig(me, folderId), findEventsFolder(me, folderId)])
+            : [null, null];
+        fillViewers(eventsId, eventsId ? await listViewers(me, eventsId) : []);
 
         document.getElementById('cfg-missing').hidden = !!config;
         fill('cfg-notification-emails', config ? config.notification_emails : []);

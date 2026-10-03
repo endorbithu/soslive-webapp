@@ -40,6 +40,15 @@ class DemoEventsTest extends TestCase
             ->assertJsonPath('entries.0.type', 'pos')
             ->assertJsonPath('stream', 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8');
 
+        $this->getJson(route('dev.drive', DemoEvents::ENDED).'?alt=media')
+            ->assertJsonPath('stream_page', 'https://www.youtube.com/')
+            ->assertJsonPath('recording', 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8');
+
+        $this->getJson(route('dev.drive', DemoEvents::PROVIDER).'?alt=media')
+            ->assertOk()
+            ->assertJsonPath('stream', '')
+            ->assertJsonPath('stream_page', 'https://www.youtube.com/');
+
         $this->getJson(route('dev.drive', DemoEvents::EMPTY).'?alt=media')
             ->assertOk()
             ->assertExactJson(['v' => 1, 'stream' => '', 'entries' => []]);
