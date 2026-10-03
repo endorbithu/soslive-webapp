@@ -6,28 +6,35 @@
 <!doctype html>
 <html lang="hu">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="referrer" content="strict-origin-when-cross-origin">
+    @include('partials.head')
     @stack('head')
     <title>@yield('title', 'SOSlive')</title>
-    <link rel="stylesheet" href="/css/app.css?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body>
 <header class="top">
-    <a class="brand" href="{{ route('home', [], false) }}">SOSlive</a>
-    <nav id="nav">
-        <a href="{{ route('auth.google', [], false) }}">Belépés</a>
-        @unless (app()->isProduction())
-            <a href="{{ route('auth.dev', [], false) }}">Teszt belépés</a>
-        @endunless
-    </nav>
+    <div class="container top-inner">
+        @include('partials.brand', ['href' => route('home', [], false), 'label' => 'SOSlive'])
+        <nav id="nav">
+            <a href="{{ route('auth.google', [], false) }}">Belépés</a>
+            @unless (app()->isProduction())
+                <a href="{{ route('auth.dev', [], false) }}">Teszt belépés</a>
+            @endunless
+        </nav>
+    </div>
 </header>
-<main>
+<main class="container">
     <p id="flash" class="flash" hidden></p>
 
     @yield('content')
 </main>
+<footer class="site-footer">
+    <div class="container">
+        Az eseményeid a saját Google Drive-odban vannak, a SOSlive nem tárolja őket.
+        @unless (app()->isProduction())
+            <span class="env">{{ app()->environment() }} környezet</span>
+        @endunless
+    </div>
+</footer>
 @include('partials.config')
 </body>
 </html>

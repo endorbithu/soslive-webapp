@@ -4,12 +4,12 @@
 
 @section('content')
     <h1>Userek</h1>
-    <form method="get" class="row">
+    <form method="get" class="row search">
         <input type="search" name="q" value="{{ request('q') }}" placeholder="Email vagy név">
         <button type="submit">Keresés</button>
     </form>
 
-    <div class="table-wrap">
+    <div class="card flush table-wrap">
     <table>
         <thead>
         <tr><th>Email</th><th>Név</th><th>Regisztrált</th><th>Utolsó belépés</th><th></th></tr>
@@ -37,7 +37,7 @@
     </table>
     </div>
 
-    <p class="row">
+    <p class="row pager">
         @if ($users->previousPageUrl())
             <a href="{{ $users->previousPageUrl() }}">&larr; Előző</a>
         @endif
