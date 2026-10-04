@@ -134,6 +134,10 @@ main.container { flex: 1; padding-block: 1.5rem 2.5rem; }
     color: var(--muted);
     font-size: .85rem;
 }
+.site-footer p { margin: 0 0 .5rem; }
+.site-footer .legal { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+.site-footer .legal a { color: var(--muted); }
+.site-footer .legal a:hover { color: var(--fg); }
 .site-footer .env {
     display: inline-block;
     margin-left: .5rem;

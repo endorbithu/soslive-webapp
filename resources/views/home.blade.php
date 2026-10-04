@@ -14,6 +14,8 @@
                 <a class="button secondary" href="{{ route('auth.dev', [], false) }}">Teszt belépés Google nélkül</a>
             @endunless
         </p>
+        <p class="muted">A belépéssel elfogadod a <a href="/legal/felhasznalasi-feltetelek.pdf">felhasználási feltételeket</a>
+            és az <a href="/legal/adatvedelem.pdf">adatvédelmi tájékoztatót</a>.</p>
     </section>
 
     <ol class="steps">
