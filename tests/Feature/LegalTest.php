@@ -24,6 +24,13 @@ class LegalTest extends TestCase
         }
     }
 
+    public function test_sources_have_no_placeholders(): void
+    {
+        foreach (glob(resource_path('legal/*.html')) as $file) {
+            $this->assertDoesNotMatchRegularExpression('/class="todo"|\[(SZÉKHELY|TÁRHELYSZOLGÁLTATÓ|REGISTERED ADDRESS|HOSTING PROVIDER)\]/u', file_get_contents($file), basename($file));
+        }
+    }
+
     public function test_static_pages_link_to_legal_documents(): void
     {
         foreach (['/', '/dashboard', '/settings', '/e/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abc'] as $uri) {
