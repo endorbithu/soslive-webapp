@@ -66,13 +66,19 @@ kezdőpontot és az utolsó pozíciót.
 2. APIs: **Google Drive API** és **Google Picker API** engedélyezése.
 3. OAuth consent screen: scope-ok `openid`, `email`, `profile`, `https://www.googleapis.com/auth/drive.file`
    (a `drive.file` nem „restricted” scope, nem kell hozzá CASA audit). Élesben „In production” állapot.
-4. OAuth client (Web application):
+4. OAuth consent screen → *App domain*:
+   - *Application privacy policy link*: `https://<domain>/legal/privacy-policy.pdf`
+   - *Application terms of service link*: `https://<domain>/legal/terms-of-service.pdf`
+
+   A magyar változatok: `/legal/adatvedelem.pdf`, `/legal/felhasznalasi-feltetelek.pdf`. A forrásuk és az
+   újragenerálás módja a [resources/legal/README.md](resources/legal/README.md)-ben van.
+5. OAuth client (Web application):
    - *Authorized redirect URIs*: `https://<domain>/app/auth/google/callback`,
    - *Authorized JavaScript origins*: `https://<domain>` (a böngészőben kért Drive tokenhez).
    A mobil appok saját (Android / iOS) OAuth klienst használnak ugyanebben a projektben.
-5. API key a böngészőnek (kötelező, ezzel olvassa a nyilvános eseményeket): korlátozás *HTTP referrer* = a webapp
+6. API key a böngészőnek (kötelező, ezzel olvassa a nyilvános eseményeket): korlátozás *HTTP referrer* = a webapp
    domainje, *API restrictions* = Drive API és Google Picker API.
-6. `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_API_KEY`, és `GOOGLE_APP_ID`. Ez
+7. `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_API_KEY`, és `GOOGLE_APP_ID`. Ez
    utóbbi a projekt száma (*Project number*, a Cloud Console kezdőlapján). A Picker kell hozzá; enélkül a „Megosztott
    mappa hozzáadása” gomb nem jelenik meg.
    A megosztás működését élesítés előtt két valódi fiókkal ellenőrizni kell, lásd

@@ -29,10 +29,20 @@
 </main>
 <footer class="site-footer">
     <div class="container">
-        Az eseményeid a saját Google Drive-odban vannak, a SOSlive nem tárolja őket.
-        @unless (app()->isProduction())
-            <span class="env">{{ app()->environment() }} környezet</span>
-        @endunless
+        <p>
+            Az eseményeid a saját Google Drive-odban vannak, a SOSlive nem tárolja őket.
+            @unless (app()->isProduction())
+                <span class="env">{{ app()->environment() }} környezet</span>
+            @endunless
+        </p>
+        {{-- Statikus PDF-ek a public/legal alól (forrás: resources/legal). --}}
+        <nav class="legal" aria-label="Jogi információk">
+            <a href="/legal/adatvedelem.pdf">Adatvédelmi tájékoztató</a>
+            <a href="/legal/felhasznalasi-feltetelek.pdf">Felhasználási feltételek</a>
+            <a href="/legal/privacy-policy.pdf" hreflang="en" lang="en">Privacy Policy</a>
+            <a href="/legal/terms-of-service.pdf" hreflang="en" lang="en">Terms of Service</a>
+            <a href="mailto:info@endorbit.hu">info@endorbit.hu</a>
+        </nav>
     </div>
 </footer>
 @include('partials.config')

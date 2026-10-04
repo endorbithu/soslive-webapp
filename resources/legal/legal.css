@@ -1,0 +1,24 @@
+/* Nyomtatási stílus a jogi dokumentumokhoz (PDF: headless Chromium, lásd README.md). */
+@page { size: A4; margin: 18mm 18mm 20mm; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font: 10pt/1.5 "DejaVu Sans", "Segoe UI", Roboto, Arial, sans-serif; color: #1b1c20; }
+header { border-bottom: 2px solid #d32f2f; padding-bottom: 8pt; margin-bottom: 14pt; }
+.brand { display: flex; align-items: center; gap: 6pt; font-weight: 700; color: #d32f2f; font-size: 11pt; }
+.brand svg { width: 14pt; height: 14pt; }
+h1 { font-size: 18pt; margin: 6pt 0 2pt; line-height: 1.2; }
+.meta { color: #5f616a; font-size: 9pt; margin: 0; }
+h2 { font-size: 12.5pt; margin: 16pt 0 5pt; break-after: avoid; }
+h3 { font-size: 10.5pt; margin: 10pt 0 3pt; break-after: avoid; }
+p { margin: 0 0 6pt; }
+ul, ol { margin: 0 0 6pt; padding-left: 16pt; }
+li { margin: 0 0 3pt; }
+table { width: 100%; border-collapse: collapse; margin: 4pt 0 8pt; font-size: 9pt; break-inside: auto; }
+th, td { border: 1px solid #d9dae0; padding: 4pt 5pt; text-align: left; vertical-align: top; }
+th { background: #f3f3f6; }
+tr { break-inside: avoid; }
+.box { border-left: 3px solid #d32f2f; background: #fdecec; padding: 6pt 9pt; margin: 8pt 0; break-inside: avoid; }
+.todo { background: #fff3a8; padding: 0 2pt; font-weight: 700; }
+.small { font-size: 8.5pt; color: #5f616a; }
+a { color: #1d5fbf; text-decoration: none; }
+code { font-family: "DejaVu Sans Mono", monospace; font-size: 8.5pt; }
